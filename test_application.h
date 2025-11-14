@@ -10,6 +10,5 @@ class TestApplication : public Application{
 public:
     TestApplication();
     ~TestApplication();
-
 };
 #endif
