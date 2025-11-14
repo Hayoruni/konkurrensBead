@@ -1,6 +1,5 @@
 #include "test_scene.h"
 
-
 void TestScene::input_event(const Ref<InputEvent> &event){
 
     Ref<InputEventKey> iek = event;
@@ -29,16 +28,33 @@ void TestScene::input_event(const Ref<InputEvent> &event){
 
 }
 void TestScene::update(float delta){
+    Chunk chunk = Chunk(10,10);
+    chunks.push_back(Chunk(10, 10));
 }
 void TestScene::render(){
     Renderer *r = Renderer::get_singleton();
 
     r->clear_screen(Color(1, 1 ,1));
     r->camera_2d_projection_set_to_window();
-    r->draw_rect(Rect2(10, 10, 100, 100),Color(0, 0, 0));
+    int y = 10;
+    int x = 10;
+    for(int i = 0; i < 1; i++){
+        r->draw_texture(_grassTexture, Rect2(chunks[i].x, chunks[i].y, 100, 100));
+    }
 
-    r->draw_text_2d("Text!", _font, Vector2(300, 300),Color(1, 0, 0));
-    r->draw_texture(_texture, Rect2(400, 400, 100, 100));
+    /*for(int i = 0; i<10; i++){
+        for(int j = 0; j < 19; j++){
+            //r->draw_rect(Rect2(j, y, 300, 300),Color(0, 255, 0));
+            r->draw_texture(_grassTexture, Rect2(x, y, 100, 100));
+            x += 100;
+        }
+        y += 105;
+        x = 10;
+    }*/
+
+
+    //r->draw_text_2d("Text!", _font, Vector2(300, 300),Color(1, 0, 0));
+    //r->draw_texture(_texture, Rect2(400, 400, 100, 100));
     //r->draw_texture_clipped(_texture, Rect2(32, 32, 16, 16), Rect2(400, 600, 100, 100));
 
     float currypos = 100;
@@ -51,7 +67,7 @@ void TestScene::render(){
 
     GUI::new_frame();
 
-    ImGui::Begin("Ez egy ablak!");
+    /*ImGui::Begin("Ez egy ablak!");
     ImGui::Text("Ez egy textbox!");
     ImGui::SliderInt(" = int value", &_int_slider_value, -200, 200);
 
@@ -71,7 +87,7 @@ void TestScene::render(){
     s+= " manupulált " + String::num(1.2);
     s += " String";
 
-    ImGui::End();
+    ImGui::End();*/
 
     GUI::render();
 }
@@ -83,9 +99,9 @@ TestScene::TestScene(){
     _font.instance();
     _font->load_default(31.5);
 
-    _image.instance();
-    _image->load_from_file("test_img.png");
+    _grassImage.instance();
+    _grassImage->load_from_file("grass.png");
 
-    _texture.instance();
-    _texture->create_from_image(_image);
+    _grassTexture.instance();
+    _grassTexture->create_from_image(_grassImage);
 }
