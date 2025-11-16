@@ -2437,7 +2437,7 @@
 	<string.h>
 	<unistd.h>
 
-1763155533 d:\munkak\programozas\github\konkurrensbead\test_scene.h
+1763251035 d:\munkak\programozas\github\konkurrensbead\test_scene.h
 	"sfw.h"
 
 1763147806 d:\munkak\programozas\github\konkurrensbead\test_application.h
@@ -2568,6 +2568,7 @@
 1763148124 source:d:\munkak\programozas\github\konkurrensbead\test_application.cpp
 	"test_application.h"
 
-1763156049 source:d:\munkak\programozas\github\konkurrensbead\test_scene.cpp
+1763250712 source:d:\munkak\programozas\github\konkurrensbead\test_scene.cpp
 	"test_scene.h"
+	<windows.h>
 
