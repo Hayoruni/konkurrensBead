@@ -1,11 +1,14 @@
 #include "test_scene.h"
-#include <windows.h>
 
 void TestScene::input_event(const Ref<InputEvent> &event){
 
     Ref<InputEventKey> iek = event;
 
     if(iek.is_valid()){
+        if (iek->is_echo()) {
+            return;
+        }
+
         if(iek->is_released()){
             if(iek->get_physical_scancode() == KEY_W){
                 pressW = false;
@@ -37,11 +40,18 @@ void TestScene::input_event(const Ref<InputEvent> &event){
     }
 
 }
+void TestScene::GenGhost(){
+    RandomPCG rnd;
+    rnd.seed(SFWTime::time_ns());
+    Enemy enemy = Enemy(player.x+rnd.random(-500, 500), player.y+rnd.random(-500, 500), chunkBlockSize/3, 10, 300, 10);
+    enemies.push_back(enemy);
+}
 
 void TestScene::GenerateChunk(int x, int y){
     List<TerrainItem> terrainObjs = {};
     RandomPCG rnd;
-    rnd.seed(GetTickCount64()+rndStart.random(-9999999,9999999)); //TODO ide lehet kell mutex lock mert nem tudom hogy keri le a kozos randomot de jonak tunik szoval idk
+
+    rnd.seed(SFWTime::time_ns()+x+y); //TODO ide lehet kell mutex lock mert nem tudom hogy keri le a kozos randomot de jonak tunik szoval idk
     int rockCount = rnd.random(0, 4);
     for(int i = 0; i<rockCount; i++){
         int rockX = rnd.random(0, 17);
@@ -87,29 +97,50 @@ void TestScene::update(float delta){
         start = true;
     }
 
+    enemySpawnTimer += delta;
+    if(enemySpawnTimer > 1.0f){
+        enemySpawnTimer = 0.0f;
+        GenGhost();
+    }
+    score+=delta;
+
+    for(int i = 0;i<enemies.size();i++){
+        int targetX = player.x - enemies[i].x;
+        int targetY = player.y - enemies[i].y;
+        double value = targetX*targetX+targetY*targetY;
+        int length = Math::sqrt(value);
+        if(length>enemies[i].speed*delta){
+            enemies[i].x = enemies[i].x + (enemies[i].speed*delta) * targetX / length;
+            enemies[i].y = enemies[i].y + (enemies[i].speed*delta) * targetY / length;
+        }
+    }
+
+
+   // GenGhost();
+
     //camera/player control
     if(camState == CameraState::Both){
-        if(pressW) player.y += player.speed; //TODO ezeket meg kene szorozni deltaTime-al de nem tudom hol van
-        if(pressS) player.y -= player.speed; //es biztos hogy nem igy kell nezni az inputot de most debughoz jo
-        if(pressA) player.x -= player.speed;
-        if(pressD) player.x += player.speed;
+        if(pressW) player.y += player.speed*delta; //TODO ezeket meg kene szorozni deltaTime-al de nem tudom hol van
+        if(pressS) player.y -= player.speed*delta; //es biztos hogy nem igy kell nezni az inputot de most debughoz jo
+        if(pressA) player.x -= player.speed*delta;
+        if(pressD) player.x += player.speed*delta;
 
-        if(pressW) camY += player.speed;
-        if(pressS) camY -= player.speed;
-        if(pressA) camX -= player.speed;
-        if(pressD) camX += player.speed;
+        if(pressW) camY += player.speed*delta;
+        if(pressS) camY -= player.speed*delta;
+        if(pressA) camX -= player.speed*delta;
+        if(pressD) camX += player.speed*delta;
     }
     else if(camState == CameraState::Camera){
-        if(pressW) camY += player.speed;
-        if(pressS) camY -= player.speed;
-        if(pressA) camX -= player.speed;
-        if(pressD) camX += player.speed;
+        if(pressW) camY += player.speed*delta;
+        if(pressS) camY -= player.speed*delta;
+        if(pressA) camX -= player.speed*delta;
+        if(pressD) camX += player.speed*delta;
     }
     else if(camState == CameraState::Player){
-        if(pressW) player.y += player.speed;
-        if(pressS) player.y -= player.speed;
-        if(pressA) player.x -= player.speed;
-        if(pressD) player.x += player.speed;
+        if(pressW) player.y += player.speed*delta;
+        if(pressS) player.y -= player.speed*delta;
+        if(pressA) player.x -= player.speed*delta;
+        if(pressD) player.x += player.speed*delta;
     }
 }
 void TestScene::render(){
@@ -139,8 +170,15 @@ void TestScene::render(){
     }
 
     //player
-    r->draw_texture(_playerTexture, Rect2(player.x - camX + playerOffsetX, -(player.y - camY) + playerOffsetY, player.eSize, player.eSize));
+    r->draw_texture(_playerTexture, Rect2(player.x - camX + charOffsetX, -(player.y - camY) + charOffsetY, player.eSize, player.eSize));
 
+    //enemy
+    for(int i = 0; i < enemies.size(); i++){
+        r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + charOffsetX, -(enemies[i].y - camY) + charOffsetY, enemies[i].eSize, enemies[i].eSize));
+    }
+
+    //ui
+    r->draw_text_2d("Score: "+String::num(score), _font, Vector2(100,100), Color(190, 0, 180));
 
     //debug
     if(showChunkBorder){
@@ -276,13 +314,15 @@ TestScene::TestScene(){
     camX = 0;
     camY = 0;
     chunkBlockSize = 200;
-    playerOffsetX = 960-(chunkBlockSize/3)/2;
-    playerOffsetY = 540-(chunkBlockSize/3)/2;
+    charOffsetX = 960-(chunkBlockSize/3)/2;
+    charOffsetY = 540-(chunkBlockSize/3)/2;
     chunkOffsetX = 960-(chunkBlockSize*3);
     chunkOffsetY = 540-(chunkBlockSize*3);
-    rndStart.seed(GetTickCount64());
     camState = CameraState::Both;
+    enemySpawnTimer = 0.0f;
+    score = 0;
 
     //ez nem tudtam dinamikusra megcsinalni szoval csak  1920x1080ba jo
-    player = Player(0, 0, chunkBlockSize / 3, 100, 10, 10);
+    player = Player(0, 0, chunkBlockSize / 3, 100, 350, 10);
+    enemies = {};
 }

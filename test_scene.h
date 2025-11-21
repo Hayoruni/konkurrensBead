@@ -80,22 +80,25 @@ public:
 	virtual void render();
 	virtual void GenerateChunk(int startX, int startY);
 	static void thread_func(void *p_user_data);
+	virtual void GenGhost();
 
     TestScene();
 
     Mutex mtx;
     List<Chunk> chunks;
     Player player;
+    List<Enemy> enemies;
     int camX;
     int camY;
     int chunkBlockSize;
-    int playerOffsetX;
-    int playerOffsetY;
+    int charOffsetX;
+    int charOffsetY;
     int chunkOffsetX;
     int chunkOffsetY;
+    float score;
     bool start = false; //lefutott-e az update elején egyszer egy start, ez csak most kell talán késöbb nem
-    RandomPCG rndStart;
     CameraState camState;
+    float enemySpawnTimer;
 
     bool pressW = false;
     bool pressS = false;
