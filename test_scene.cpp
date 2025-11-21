@@ -47,7 +47,7 @@ void TestScene::GenerateChunk(int x, int y){
         int rockX = rnd.random(0, 17);
         int rockY = rnd.random(0, 17);
         int rockT = rnd.random(0, 3);
-        terrainObjs.push_back(TerrainItem((int)(rockX*(chunkBlockSize/3)+x), (int)(rockY*(chunkBlockSize/3)+y), &_rockTextures[rockT]));
+        terrainObjs.push_back(TerrainItem((int)(rockX*(chunkBlockSize/3)+x), (int)(-rockY*(chunkBlockSize/3)+y), &_rockTextures[rockT]));
     }
 
 
@@ -86,11 +86,31 @@ void TestScene::update(float delta){
 
         start = true;
     }
-    if(pressW) camY += playerSpeed; //TODO ezeket meg kéne szorozni deltaTime-al de nem tudom hol van
-    if(pressS) camY -= playerSpeed; //és biztos hogy nem igy kell nézni az inputot de most debughoz jó
-    if(pressA) camX += playerSpeed;
-    if(pressD) camX -= playerSpeed;
 
+    //camera/player control
+    if(camState == CameraState::Both){
+        if(pressW) player.y += player.speed; //TODO ezeket meg kene szorozni deltaTime-al de nem tudom hol van
+        if(pressS) player.y -= player.speed; //es biztos hogy nem igy kell nezni az inputot de most debughoz jo
+        if(pressA) player.x -= player.speed;
+        if(pressD) player.x += player.speed;
+
+        if(pressW) camY += player.speed;
+        if(pressS) camY -= player.speed;
+        if(pressA) camX -= player.speed;
+        if(pressD) camX += player.speed;
+    }
+    else if(camState == CameraState::Camera){
+        if(pressW) camY += player.speed;
+        if(pressS) camY -= player.speed;
+        if(pressA) camX -= player.speed;
+        if(pressD) camX += player.speed;
+    }
+    else if(camState == CameraState::Player){
+        if(pressW) player.y += player.speed;
+        if(pressS) player.y -= player.speed;
+        if(pressA) player.x -= player.speed;
+        if(pressD) player.x += player.speed;
+    }
 }
 void TestScene::render(){
     Renderer *r = Renderer::get_singleton();
@@ -102,31 +122,55 @@ void TestScene::render(){
     for(int i = 0; i < chunks.size(); i++){
         int x = chunks[i].x;
         int y = chunks[i].y;
+        if(Math::abs(x - player.x) > 1560 || Math::abs(y - player.y) > 1140){
+            continue;
+        }
         for(int j = 0; j < 6; j++){
             for(int k = 0; k < 6; k++){
-                r->draw_texture(_grassTexture, Rect2(x+camX, y+camY, chunkBlockSize, chunkBlockSize));
+                r->draw_texture(_grassTexture, Rect2(x - camX + chunkOffsetX, -(y - camY) + chunkOffsetY, chunkBlockSize, chunkBlockSize));
                 x+= chunkBlockSize;
             }
-        y += chunkBlockSize;
+        y -= chunkBlockSize;
         x = chunks[i].x;
         }
         for(int j = 0;j<chunks[i].terrainItems.size();j++){
-            r->draw_texture(*chunks[i].terrainItems[j].texture, Rect2(chunks[i].terrainItems[j].x + camX, chunks[i].terrainItems[j].y + camY, chunkBlockSize/3, chunkBlockSize/3));
+            r->draw_texture(*chunks[i].terrainItems[j].texture, Rect2(chunks[i].terrainItems[j].x - camX + chunkOffsetX, -(chunks[i].terrainItems[j].y - camY) + chunkOffsetY, chunkBlockSize/3, chunkBlockSize/3));
         }
     }
+
+    //player
+    r->draw_texture(_playerTexture, Rect2(player.x - camX + playerOffsetX, -(player.y - camY) + playerOffsetY, player.eSize, player.eSize));
+
 
     //debug
     if(showChunkBorder){
         for(int i = 0; i < chunks.size(); i++){
-            r->draw_line_rect(Rect2(chunks[i].x+camX, chunks[i].y+camY, chunkBlockSize*6, chunkBlockSize*6),Color(180, 0, 0), 2);
+            r->draw_line_rect(Rect2(chunks[i].x-camX + chunkOffsetX, -(chunks[i].y-camY) + chunkOffsetY, chunkBlockSize*6, chunkBlockSize*6),Color(180, 0, 0), 2);
+            //chunk pozicioja
+            //r->draw_text_2d("X: "+String::num(chunks[i].x)+"\nY: "+String::num(chunks[i].y), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunkOffsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunkOffsetY), Color(190, 0, 180));
+            //chunk es player tavolsaga
+            r->draw_text_2d("X: "+String::num(Math::abs(chunks[i].x-player.x))+"\nY: "+String::num(Math::abs(chunks[i].y-player.y)), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunkOffsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunkOffsetY), Color(190, 0, 180));
+        }
+    }
+    if(showBlockBorder){
+        for(int i = 0; i < chunks.size(); i++){
+            for(int j = 0; j < 6; j++){
+                for(int k = 0; k < 6; k++){
+                    r->draw_line_rect(Rect2(chunks[i].x-camX+j*chunkBlockSize + chunkOffsetX, -(chunks[i].y-camY)+k*chunkBlockSize + chunkOffsetY, chunkBlockSize, chunkBlockSize),Color(180, 0, 0), 2);
+                }
+            }
         }
     }
     if(showTerrainItemBorder){
         for(int i = 0; i < chunks.size(); i++){
             for(int j = 0;j<chunks[i].terrainItems.size();j++){
-                r->draw_line_rect(Rect2(chunks[i].terrainItems[j].x+camX, chunks[i].terrainItems[j].y+camY, chunkBlockSize/3, chunkBlockSize/3),Color(0, 0, 180), 2);
+                r->draw_line_rect(Rect2(chunks[i].terrainItems[j].x-camX, -(chunks[i].terrainItems[j].y-camY), chunkBlockSize/3, chunkBlockSize/3),Color(0, 0, 180), 2);
             }
         }
+    }
+    if(showCenterLine){
+        r->draw_line(Vector2(0, r->get_window_size().y/2),Vector2(r->get_window_size().x, r->get_window_size().y/2), Color(180, 0, 0), 2);
+        r->draw_line(Vector2(r->get_window_size().x/2, 0),Vector2(r->get_window_size().x/2, r->get_window_size().y), Color(180, 0, 0), 2);
     }
 
     //r->draw_text_2d("Text!", _font, Vector2(300, 300),Color(1, 0, 0));
@@ -146,17 +190,43 @@ void TestScene::render(){
     if(ImGui::Button("Chunk Border on/off")){
         showChunkBorder = !showChunkBorder;
     };
+    if(ImGui::Button("Block Border on/off")){
+        showBlockBorder = !showBlockBorder;
+    };
     if(ImGui::Button("Terrain Item Border on/off")){
         showTerrainItemBorder = !showTerrainItemBorder;
     };
-    if(pressW) ImGui::Text("W Pressed");
-    else ImGui::Text("W Released");
+    if(ImGui::Button("Center Line on/off")){
+        showCenterLine = !showCenterLine;
+    };
+    /*if(pressW) ImGui::Text("\nW Pressed");
+    else ImGui::Text("\nW Released");
     if(pressS) ImGui::Text("S Pressed");
     else ImGui::Text("S Released");
     if(pressA) ImGui::Text("A Pressed");
     else ImGui::Text("A Released");
     if(pressD) ImGui::Text("D Pressed");
-    else ImGui::Text("D Released");
+    else ImGui::Text("D Released");*/
+
+    ImGui::Text("\nCamera Modes");
+    if(ImGui::Button("Both")){
+        camState = CameraState::Both;
+    };
+    if(ImGui::Button("Only Camera")){
+        camState = CameraState::Camera;
+    };
+    if(ImGui::Button("Only Player")){
+        camState = CameraState::Player;
+    };
+    ImGui::Text("");
+    if(ImGui::Button("Snap Camera to Player")){
+        camX=player.x;
+        camY=player.y;
+    };
+
+    ImGui::Text("\ncamX: %d | playerX: %d", camX, player.x);
+    ImGui::Text("camY: %d | playerY: %d", camY, player.y);
+
     ImGui::End();
 
     GUI::render();
@@ -193,10 +263,26 @@ TestScene::TestScene(){
     _rockTextures.push_back(_rockTexture3);
     _rockTextures.push_back(_rockTexture4);
 
+    _playerImage.instance();
+    _playerImage->load_from_file("assetts/inUse/Player.png");
+    _playerTexture.instance();
+    _playerTexture->create_from_image(_playerImage);
+    _enemyImage.instance();
+    _enemyImage->load_from_file("assetts/inUse/Enemy.png");
+    _enemyTexture.instance();
+    _enemyTexture->create_from_image(_enemyImage);
+
     chunks = {};
     camX = 0;
     camY = 0;
-    playerSpeed = 20;
     chunkBlockSize = 200;
+    playerOffsetX = 960-(chunkBlockSize/3)/2;
+    playerOffsetY = 540-(chunkBlockSize/3)/2;
+    chunkOffsetX = 960-(chunkBlockSize*3);
+    chunkOffsetY = 540-(chunkBlockSize*3);
     rndStart.seed(GetTickCount64());
+    camState = CameraState::Both;
+
+    //ez nem tudtam dinamikusra megcsinalni szoval csak  1920x1080ba jo
+    player = Player(0, 0, chunkBlockSize / 3, 100, 10, 10);
 }
