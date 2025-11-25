@@ -12,24 +12,34 @@ enum class CameraState{
 struct TerrainItem{
     int x = 0;
     int y = 0;
+    int eSize = 0;
+    int offsetX = 0;
+    int offsetY = 0;
     Ref<Texture>* texture;
 
     TerrainItem(){};
-    TerrainItem(int x, int y, Ref<Texture>* texture){
+    TerrainItem(int x, int y, int eSize, int offsetX, int offsetY, Ref<Texture>* texture){
         this->x = x;
         this->y = y;
+        this->eSize = eSize;
+        this->offsetX = offsetX;
+        this->offsetY = offsetY;
         this->texture = texture;
 	}
 };
 struct Chunk{ //egy chunk 6x6 darab 200 x 200 pixel-es részbõl van
     int x = 0;
 	int y = 0;
+    int offsetX = 0;
+    int offsetY = 0;
 	List<TerrainItem> terrainItems = {};
 
     Chunk() {}
-	Chunk(int x, int y, List<TerrainItem> terrainItems){
+	Chunk(int x, int y, int offsetX, int offsetY, List<TerrainItem> terrainItems){
         this->x = x;
         this->y = y;
+        this->offsetX = offsetX;
+        this->offsetY = offsetY;
         this->terrainItems = terrainItems;
 	}
 };
@@ -37,15 +47,19 @@ struct Player{
     int x = 0;
     int y = 0;
     int eSize = 0;
-    int hp = 0;
+    int offsetX = 0;
+    int offsetY = 0;
+    float hp = 0;
     int speed = 0;
     int damage = 0;
 
     Player(){};
-    Player(int x, int y, int eSize, int hp, int speed, int damage){
-        this->eSize = eSize;
+    Player(int x, int y, int eSize, int offsetX, int offsetY, float hp, int speed, int damage){
         this->x = x;
         this->y = y;
+        this->eSize = eSize;
+        this->offsetX = offsetX;
+        this->offsetY = offsetY;
         this->hp = hp;
         this->speed = speed;
         this->damage = damage;
@@ -56,15 +70,20 @@ struct Enemy{
     int x = 0;
     int y = 0;
     int eSize = 0;
+    int offsetX = 0;
+    int offsetY = 0;
     int hp = 0;
     int speed = 0;
     int damage = 0;
+    float aliveTime = 0; //TODO ezt torolni, csak debug
 
     Enemy(){};
-    Enemy(int x, int y, int eSize, int hp, int speed, int damage){
-        this->eSize = eSize;
+    Enemy(int x, int y, int eSize, int offsetX, int offsetY, int hp, int speed, int damage){
         this->x = x;
         this->y = y;
+        this->eSize = eSize;
+        this->offsetX = offsetX;
+        this->offsetY = offsetY;
         this->hp = hp;
         this->speed = speed;
         this->damage = damage;
@@ -81,6 +100,7 @@ public:
 	virtual void GenerateChunk(int startX, int startY);
 	static void thread_func(void *p_user_data);
 	virtual void GenGhost();
+	virtual void CheckCollisionPlayer();
 
     TestScene();
 
@@ -99,17 +119,24 @@ public:
     bool start = false; //lefutott-e az update elején egyszer egy start, ez csak most kell talán késöbb nem
     CameraState camState;
     float enemySpawnTimer;
+    int prePlayerX;
+    int prePlayerY;
+    bool canMoveX;
+    bool canMoveY;
 
     bool pressW = false;
     bool pressS = false;
     bool pressA = false;
     bool pressD = false;
+    float scaledDelta = 0.0f;
+    float timeScale = 1.0f;
 
     //debug
     bool showChunkBorder = false;
     bool showBlockBorder = false;
-    bool showTerrainItemBorder = false;
+    bool showItemBorder = false;
     bool showCenterLine = false;
+    bool canSpawnEnemy = false;
 
 protected:
     Ref<Font> _font;

@@ -43,7 +43,21 @@ void TestScene::input_event(const Ref<InputEvent> &event){
 void TestScene::GenGhost(){
     RandomPCG rnd;
     rnd.seed(SFWTime::time_ns());
-    Enemy enemy = Enemy(player.x+rnd.random(-500, 500), player.y+rnd.random(-500, 500), chunkBlockSize/3, 10, 300, 10);
+    Enemy enemy;
+    switch(rnd.random(0,3)){
+        case 0:
+            enemy = Enemy(player.x+rnd.random(-1100, 1100), player.y+rnd.random(650, 750), chunkBlockSize/3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 10, 300, 10);
+            break;
+        case 1:
+            enemy = Enemy(player.x+rnd.random(-1100, 1100), player.y+rnd.random(-750, -650), chunkBlockSize/3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 10, 300, 10);
+            break;
+        case 2:
+            enemy = Enemy(player.x+rnd.random(-1100, -1000), player.y+rnd.random(-650, 650), chunkBlockSize/3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 10, 300, 10);
+            break;
+        case 3:
+            enemy = Enemy(player.x+rnd.random(1000, 1100), player.y+rnd.random(-650, 650), chunkBlockSize/3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 10, 300, 10);
+            break;
+    }
     enemies.push_back(enemy);
 }
 
@@ -51,18 +65,18 @@ void TestScene::GenerateChunk(int x, int y){
     List<TerrainItem> terrainObjs = {};
     RandomPCG rnd;
 
-    rnd.seed(SFWTime::time_ns()+x+y); //TODO ide lehet kell mutex lock mert nem tudom hogy keri le a kozos randomot de jonak tunik szoval idk
+    rnd.seed(SFWTime::time_ns()+x+y);
     int rockCount = rnd.random(0, 4);
-    for(int i = 0; i<rockCount; i++){
-        int rockX = rnd.random(0, 17);
-        int rockY = rnd.random(0, 17);
+    for(int i = 0; i < rockCount; i++){
+        int rockX = rnd.random(-8, 9);
+        int rockY = rnd.random(-8, 9);
         int rockT = rnd.random(0, 3);
-        terrainObjs.push_back(TerrainItem((int)(rockX*(chunkBlockSize/3)+x), (int)(-rockY*(chunkBlockSize/3)+y), &_rockTextures[rockT]));
+        terrainObjs.push_back(TerrainItem((int)(rockX*(chunkBlockSize/3)-(chunkBlockSize/3/2)+x), (int)(-rockY*(chunkBlockSize/3)+(chunkBlockSize/3/2)+y), chunkBlockSize/3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, &_rockTextures[rockT]));
     }
 
 
     mtx.lock();
-    chunks.push_back(Chunk(x, y, terrainObjs));
+    chunks.push_back(Chunk(x, y, 960-(chunkBlockSize*3), 540-(chunkBlockSize*3), terrainObjs));
     mtx.unlock();
 }
 
@@ -72,7 +86,54 @@ void TestScene::thread_func(void *p_user_data){
     delete td;
 }
 
+void TestScene::CheckCollisionPlayer(){
+    Rect2 playerRect = Rect2(player.x + player.offsetX + prePlayerX, -player.y + player.offsetY + prePlayerY, player.eSize, player.eSize);
+
+    //enemies
+    for(int i = 0; i < enemies.size(); i++){
+        Rect2 enemyRect = Rect2(enemies[i].x + enemies[i].offsetX, -enemies[i].y + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize);
+        if(enemyRect.intersects(playerRect)){
+            player.hp -= enemies[i].damage * scaledDelta;
+            if(player.hp <= 0.0f){
+                //TODO player itt hal meg
+                //timeScale = 0.0f;
+            }
+        }
+    }
+
+    //rocks
+    canMoveX = true;
+    canMoveY = true;
+
+    //x preMove
+    playerRect = Rect2(player.x + player.offsetX + prePlayerX, -player.y + player.offsetY, player.eSize, player.eSize);
+    for(int i = 0; i < chunks.size(); i++){
+        for(int j = 0; j < chunks[i].terrainItems.size(); j++){
+            Rect2 itemRect = Rect2(chunks[i].terrainItems[j].x + chunks[i].terrainItems[j].offsetX, -chunks[i].terrainItems[j].y + chunks[i].terrainItems[j].offsetY, chunks[i].terrainItems[j].eSize, chunks[i].terrainItems[j].eSize);
+            if(itemRect.intersects(playerRect)){
+                canMoveX = false;
+                break;
+            }
+        }
+        if(!canMoveX) break;
+    }
+
+    //y preMove //TODO ez nem jo és nem ertem miert
+    playerRect = Rect2(player.x + player.offsetX, -player.y + player.offsetY + prePlayerY, player.eSize, player.eSize);
+    for(int i = 0; i < chunks.size(); i++){
+        for(int j = 0; j < chunks[i].terrainItems.size(); j++){
+            Rect2 itemRect = Rect2(chunks[i].terrainItems[j].x + chunks[i].terrainItems[j].offsetX, -chunks[i].terrainItems[j].y + chunks[i].terrainItems[j].offsetY, chunks[i].terrainItems[j].eSize, chunks[i].terrainItems[j].eSize);
+            if(itemRect.intersects(playerRect)){
+                canMoveY = false;
+                break;
+            }
+        }
+        if(!canMoveY) break;
+    }
+}
+
 void TestScene::update(float delta){
+    scaledDelta = delta * timeScale;
     if(!start){
         Thread t1, t2, t3, t4, t5, t6, t7, t8, t9;
         ThreadData* td1 = new ThreadData{0, 0, this};
@@ -97,50 +158,56 @@ void TestScene::update(float delta){
         start = true;
     }
 
-    enemySpawnTimer += delta;
+    if(canSpawnEnemy) enemySpawnTimer += scaledDelta;
     if(enemySpawnTimer > 1.0f){
         enemySpawnTimer = 0.0f;
         GenGhost();
     }
-    score+=delta;
+    score+=scaledDelta;
 
-    for(int i = 0;i<enemies.size();i++){
+    List<Enemy>::Element *e = enemies.front();
+    for(int i = 0; i<enemies.size(); i++){
         int targetX = player.x - enemies[i].x;
         int targetY = player.y - enemies[i].y;
         double value = targetX*targetX+targetY*targetY;
         int length = Math::sqrt(value);
-        if(length>enemies[i].speed*delta){
-            enemies[i].x = enemies[i].x + (enemies[i].speed*delta) * targetX / length;
-            enemies[i].y = enemies[i].y + (enemies[i].speed*delta) * targetY / length;
+        if(length>enemies[i].speed*scaledDelta){
+            enemies[i].x = enemies[i].x + (enemies[i].speed*scaledDelta) * targetX / length;
+            enemies[i].y = enemies[i].y + (enemies[i].speed*scaledDelta) * targetY / length;
         }
+
+        enemies[i].aliveTime+=scaledDelta;
+        if(enemies[i].aliveTime>5.0f){
+            e->erase();
+            i--;
+        }
+        e = e->next();
     }
-
-
-   // GenGhost();
 
     //camera/player control
-    if(camState == CameraState::Both){
-        if(pressW) player.y += player.speed*delta; //TODO ezeket meg kene szorozni deltaTime-al de nem tudom hol van
-        if(pressS) player.y -= player.speed*delta; //es biztos hogy nem igy kell nezni az inputot de most debughoz jo
-        if(pressA) player.x -= player.speed*delta;
-        if(pressD) player.x += player.speed*delta;
+    prePlayerX = 0;
+    prePlayerY = 0;
+    if(pressW) prePlayerY += player.speed * scaledDelta;
+    if(pressS) prePlayerY += -player.speed *  scaledDelta;
+    if(pressA) prePlayerX += -player.speed * scaledDelta;
+    if(pressD) prePlayerX += player.speed * scaledDelta;
 
-        if(pressW) camY += player.speed*delta;
-        if(pressS) camY -= player.speed*delta;
-        if(pressA) camX -= player.speed*delta;
-        if(pressD) camX += player.speed*delta;
+    //CheckCollisionPlayer();
+
+    if(camState == CameraState::Both){
+        if(canMoveX) player.x += prePlayerX;
+        if(canMoveY) player.y += prePlayerY;
+
+        if(canMoveX) camX += prePlayerX;
+        if(canMoveY) camY += prePlayerY;
     }
     else if(camState == CameraState::Camera){
-        if(pressW) camY += player.speed*delta;
-        if(pressS) camY -= player.speed*delta;
-        if(pressA) camX -= player.speed*delta;
-        if(pressD) camX += player.speed*delta;
+        camX += prePlayerX;
+        camY += prePlayerY;
     }
     else if(camState == CameraState::Player){
-        if(pressW) player.y += player.speed*delta;
-        if(pressS) player.y -= player.speed*delta;
-        if(pressA) player.x -= player.speed*delta;
-        if(pressD) player.x += player.speed*delta;
+        if(canMoveX) player.x += prePlayerX;
+        if(canMoveY) player.y += prePlayerY;
     }
 }
 void TestScene::render(){
@@ -158,68 +225,65 @@ void TestScene::render(){
         }
         for(int j = 0; j < 6; j++){
             for(int k = 0; k < 6; k++){
-                r->draw_texture(_grassTexture, Rect2(x - camX + chunkOffsetX, -(y - camY) + chunkOffsetY, chunkBlockSize, chunkBlockSize));
+                r->draw_texture(_grassTexture, Rect2(x - camX + chunks[i].offsetX, -(y - camY) + chunks[i].offsetY, chunkBlockSize, chunkBlockSize));
                 x+= chunkBlockSize;
             }
         y -= chunkBlockSize;
         x = chunks[i].x;
         }
         for(int j = 0;j<chunks[i].terrainItems.size();j++){
-            r->draw_texture(*chunks[i].terrainItems[j].texture, Rect2(chunks[i].terrainItems[j].x - camX + chunkOffsetX, -(chunks[i].terrainItems[j].y - camY) + chunkOffsetY, chunkBlockSize/3, chunkBlockSize/3));
+            r->draw_texture(*chunks[i].terrainItems[j].texture, Rect2(chunks[i].terrainItems[j].x - camX + chunks[i].terrainItems[j].offsetX, -(chunks[i].terrainItems[j].y - camY) + chunks[i].terrainItems[j].offsetY, chunks[i].terrainItems[j].eSize, chunks[i].terrainItems[j].eSize));
         }
     }
 
     //player
-    r->draw_texture(_playerTexture, Rect2(player.x - camX + charOffsetX, -(player.y - camY) + charOffsetY, player.eSize, player.eSize));
+    r->draw_texture(_playerTexture, Rect2(player.x - camX + player.offsetX, -(player.y - camY) + player.offsetY, player.eSize, player.eSize));
 
     //enemy
     for(int i = 0; i < enemies.size(); i++){
-        r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + charOffsetX, -(enemies[i].y - camY) + charOffsetY, enemies[i].eSize, enemies[i].eSize));
+        r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize));
     }
 
     //ui
-    r->draw_text_2d("Score: "+String::num(score), _font, Vector2(100,100), Color(190, 0, 180));
+    r->draw_text_2d("Score: "+String::num(score), _font, Vector2(10,10), Color(190, 0, 180));
+    r->draw_text_2d("HP: "+String::num(player.hp, 0), _font, Vector2(10,50), Color(190, 0, 180));
 
     //debug
     if(showChunkBorder){
         for(int i = 0; i < chunks.size(); i++){
-            r->draw_line_rect(Rect2(chunks[i].x-camX + chunkOffsetX, -(chunks[i].y-camY) + chunkOffsetY, chunkBlockSize*6, chunkBlockSize*6),Color(180, 0, 0), 2);
+            r->draw_line_rect(Rect2(chunks[i].x-camX + chunks[i].offsetX, -(chunks[i].y-camY) + chunks[i].offsetY, chunkBlockSize*6, chunkBlockSize*6),Color(180, 0, 0), 2);
             //chunk pozicioja
-            //r->draw_text_2d("X: "+String::num(chunks[i].x)+"\nY: "+String::num(chunks[i].y), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunkOffsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunkOffsetY), Color(190, 0, 180));
+            r->draw_text_2d("X: "+String::num(chunks[i].x)+"\nY: "+String::num(chunks[i].y), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunks[i].offsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunks[i].offsetY), Color(190, 0, 180));
             //chunk es player tavolsaga
-            r->draw_text_2d("X: "+String::num(Math::abs(chunks[i].x-player.x))+"\nY: "+String::num(Math::abs(chunks[i].y-player.y)), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunkOffsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunkOffsetY), Color(190, 0, 180));
+            //r->draw_text_2d("X: "+String::num(Math::abs(chunks[i].x-player.x))+"\nY: "+String::num(Math::abs(chunks[i].y-player.y)), _font, Vector2(chunks[i].x-camX+chunkBlockSize*3 + chunks[i].offsetX, -(chunks[i].y-camY)+chunkBlockSize*3 + chunks[i].offsetY), Color(190, 0, 180));
         }
     }
     if(showBlockBorder){
         for(int i = 0; i < chunks.size(); i++){
             for(int j = 0; j < 6; j++){
                 for(int k = 0; k < 6; k++){
-                    r->draw_line_rect(Rect2(chunks[i].x-camX+j*chunkBlockSize + chunkOffsetX, -(chunks[i].y-camY)+k*chunkBlockSize + chunkOffsetY, chunkBlockSize, chunkBlockSize),Color(180, 0, 0), 2);
+                    r->draw_line_rect(Rect2(chunks[i].x-camX+j*chunkBlockSize + chunks[i].offsetX, -(chunks[i].y-camY)+k*chunkBlockSize + chunks[i].offsetY, chunkBlockSize, chunkBlockSize),Color(180, 0, 0), 2);
                 }
             }
         }
     }
-    if(showTerrainItemBorder){
+    if(showItemBorder){
+        r->draw_line_rect(Rect2(player.x - camX + player.offsetX, -(player.y - camY) + player.offsetY,  player.eSize, player.eSize),Color(0, 180, 180), 2);
         for(int i = 0; i < chunks.size(); i++){
             for(int j = 0;j<chunks[i].terrainItems.size();j++){
-                r->draw_line_rect(Rect2(chunks[i].terrainItems[j].x-camX, -(chunks[i].terrainItems[j].y-camY), chunkBlockSize/3, chunkBlockSize/3),Color(0, 0, 180), 2);
+                r->draw_line_rect(Rect2(chunks[i].terrainItems[j].x - camX + chunks[i].terrainItems[j].offsetX, -(chunks[i].terrainItems[j].y - camY) + chunks[i].terrainItems[j].offsetY, chunks[i].terrainItems[j].eSize, chunks[i].terrainItems[j].eSize),Color(0, 0, 180), 2);
+                r->draw_text_2d("Y: "+String::num(chunks[i].terrainItems[j].y), _font, Vector2(chunks[i].terrainItems[j].x - camX + chunks[i].terrainItems[j].offsetX, -(chunks[i].terrainItems[j].y - camY) + chunks[i].terrainItems[j].offsetY), Color(190, 0, 180));
+                r->draw_text_2d("X: "+String::num(chunks[i].terrainItems[j].x), _font, Vector2(chunks[i].terrainItems[j].x - camX + chunks[i].terrainItems[j].offsetX, -(chunks[i].terrainItems[j].y - camY-30) + chunks[i].terrainItems[j].offsetY), Color(190, 0, 180));
             }
+        }
+        for(int i = 0; i <enemies.size(); i++){
+            r->draw_line_rect(Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY,  enemies[i].eSize, enemies[i].eSize),Color(0, 180, 180), 2);
         }
     }
     if(showCenterLine){
         r->draw_line(Vector2(0, r->get_window_size().y/2),Vector2(r->get_window_size().x, r->get_window_size().y/2), Color(180, 0, 0), 2);
         r->draw_line(Vector2(r->get_window_size().x/2, 0),Vector2(r->get_window_size().x/2, r->get_window_size().y), Color(180, 0, 0), 2);
     }
-
-    //r->draw_text_2d("Text!", _font, Vector2(300, 300),Color(1, 0, 0));
-    //r->draw_texture_clipped(_texture, Rect2(32, 32, 16, 16), Rect2(400, 600, 100, 100));
-
-    /*float currypos = 100;
-    for(HashMap<String, int>::Element *E = _test_keys.front(); E; E = E->next){
-        r->draw_text_2d(E->key() + " "+ String::num(E->value()), _font, Vector2(500, currypos),Color(0, 1, 0) );
-        currypos += 100;
-    }*/
-
 
 
     GUI::new_frame();
@@ -231,20 +295,15 @@ void TestScene::render(){
     if(ImGui::Button("Block Border on/off")){
         showBlockBorder = !showBlockBorder;
     };
-    if(ImGui::Button("Terrain Item Border on/off")){
-        showTerrainItemBorder = !showTerrainItemBorder;
+    if(ImGui::Button("Item Border on/off")){
+        showItemBorder = !showItemBorder;
     };
     if(ImGui::Button("Center Line on/off")){
         showCenterLine = !showCenterLine;
     };
-    /*if(pressW) ImGui::Text("\nW Pressed");
-    else ImGui::Text("\nW Released");
-    if(pressS) ImGui::Text("S Pressed");
-    else ImGui::Text("S Released");
-    if(pressA) ImGui::Text("A Pressed");
-    else ImGui::Text("A Released");
-    if(pressD) ImGui::Text("D Pressed");
-    else ImGui::Text("D Released");*/
+    if(ImGui::Button("Enemy Spawning on/off")){
+        canSpawnEnemy = !canSpawnEnemy;
+    };
 
     ImGui::Text("\nCamera Modes");
     if(ImGui::Button("Both")){
@@ -311,18 +370,16 @@ TestScene::TestScene(){
     _enemyTexture->create_from_image(_enemyImage);
 
     chunks = {};
+    enemies = {};
     camX = 0;
     camY = 0;
     chunkBlockSize = 200;
-    charOffsetX = 960-(chunkBlockSize/3)/2;
-    charOffsetY = 540-(chunkBlockSize/3)/2;
-    chunkOffsetX = 960-(chunkBlockSize*3);
-    chunkOffsetY = 540-(chunkBlockSize*3);
+    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 950, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
-
-    //ez nem tudtam dinamikusra megcsinalni szoval csak  1920x1080ba jo
-    player = Player(0, 0, chunkBlockSize / 3, 100, 350, 10);
-    enemies = {};
+    prePlayerX = 0;
+    prePlayerY = 0;
+    canMoveX = true;
+    canMoveY = true;
 }
