@@ -72,6 +72,8 @@ struct Enemy{
     int eSize = 0;
     int offsetX = 0;
     int offsetY = 0;
+    int preMoveX = 0;
+    int preMoveY = 0;
     int hp = 0;
     int speed = 0;
     int damage = 0;
@@ -101,6 +103,7 @@ public:
 	static void thread_func(void *p_user_data);
 	virtual void GenGhost();
 	virtual void CheckCollisionPlayer();
+	virtual void CheckCollisionMoveEnemy();
 
     TestScene();
 
@@ -124,12 +127,16 @@ public:
     bool canMoveX;
     bool canMoveY;
 
+    //engVar
     bool pressW = false;
     bool pressS = false;
     bool pressA = false;
     bool pressD = false;
     float scaledDelta = 0.0f;
     float timeScale = 1.0f;
+    float fpsElapsed = 1.0f;
+    int fps = 0;
+    int fpsDisplay = 0;
 
     //debug
     bool showChunkBorder = false;
