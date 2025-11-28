@@ -173,14 +173,60 @@ void TestScene::CheckCollisionMoveEnemy(){
                 enemyCanMoveY = false;
             }
         }
-         if(enemyCanMoveY) enemies[i].y = enemies[i].preMoveY;
+        if(enemyCanMoveY) enemies[i].y = enemies[i].preMoveY;
     }
+}
+
+void TestScene::CheckCollisionProjectile(){
+    if(projectiles.size()<=0) return;
+    Rect2 enemyRect;
+    Rect2 projectileRect;
+    List<Projectile>::Element *e = projectiles.front();
+
+    for(int i = 0;i<projectiles.size();i++){
+        projectileRect = Rect2(projectiles[i].x + projectiles[i].offsetX, -projectiles[i].y + projectiles[i].offsetY, projectiles[i].eSize, projectiles[i].eSize);
+        for(int j = 0;j<enemies.size();j++){
+            enemyRect = Rect2(enemies[j].x + enemies[j].offsetX, -enemies[j].y + enemies[j].offsetY, enemies[j].eSize, enemies[j].eSize);
+            if(enemyRect.intersects(projectileRect)){
+                e->erase();
+                i--;
+                enemies[j].hp = 0;
+            }
+        }
+        e = e->next();
+    }
+}
+
+void TestScene::PlayerAttack(){
+    if(enemies.size()>0){
+        int minIndex = 0;
+        int minDistance = Math::sqrt((((enemies[0].x - player.x)*(enemies[0].x - player.x))+((enemies[0].y - player.y)*(enemies[0].y - player.y))));
+        for(int i = 0;i <enemies.size();i++){
+            int targetX =  enemies[i].x - player.x;
+            int targetY = enemies[i].y - player.y;
+            double value = targetX*targetX+targetY*targetY;
+            int length = Math::sqrt(value);
+            if(length < minDistance){
+                minDistance = length;
+                minIndex = i;
+            }
+        }
+        float targetX =  enemies[minIndex].x - player.x;
+        float targetY = enemies[minIndex].y - player.y;
+        double value = targetX*targetX+targetY*targetY;
+        float length = Math::sqrt(value);
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/6,960-chunkBlockSize/6/2, 540-chunkBlockSize/6/2,targetX/length,targetY/length,10.0f,player.speed*2));
+    }
+    else{
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/6,960-chunkBlockSize/6/2, 540-chunkBlockSize/6/2,1.0f,1.0f,10.0f,player.speed*2));
+    }
+
 }
 
 void TestScene::update(float delta){
     scaledDelta = delta * timeScale;
     if(!start){
-        Application::get_singleton()->target_fps = 300;
+        Application::get_singleton()->target_fps = 1000;
         Thread t1, t2, t3, t4, t5, t6, t7, t8, t9;
         ThreadData* td1 = new ThreadData{0, 0, this};
         ThreadData* td2 = new ThreadData{chunkBlockSize*6, 0, this};
@@ -204,16 +250,22 @@ void TestScene::update(float delta){
         start = true;
     }
 
+    index = Math::round(player.x / 1200);// if(Math::abs(player.x) % 1200 > 600){if(player.x / 1200 > 0){index += 1;}else if(player.x / 1200<0){index-=1;}}
+    indey = Math::round(player.y / 1200);// if(Math::abs(player.y) % 1200 > 600){if(player.y / 1200 > 0){indey += 1;}else if(player.y / 1200<0){indey-=1;}}
+
+    int xcor = index * 1200;
+    int ycor = indey * 1200;
+
     fps++;
     fpsElapsed += delta; //TODO megmondani tanarnak hogy valami rossz a target_fps-el
-    if(fpsElapsed > 1.0f){
+    if(fpsElapsed > 2.0f){
         fpsDisplay = fps;
         fps = 0;
         fpsElapsed = 0.0f;
     }
 
     if(canSpawnEnemy) enemySpawnTimer += scaledDelta;
-    if(enemySpawnTimer > 1.0f){
+    if(enemySpawnTimer > 2.0f){
         enemySpawnTimer = 0.0f;
         GenGhost();
     }
@@ -229,9 +281,28 @@ void TestScene::update(float delta){
     }
     CheckCollisionMoveEnemy();
 
+    CheckCollisionProjectile();
+    List<Projectile>::Element *e2 = projectiles.front();
+    for(int i =0;i<projectiles.size();i++){
+        projectiles[i].x += projectiles[i].targetX * projectiles[i].speed * scaledDelta;
+        projectiles[i].y += projectiles[i].targetY * projectiles[i].speed * scaledDelta;
+        projectiles[i].lifeTime-=scaledDelta;
+        if(projectiles[i].lifeTime<=0.0f){
+            e2->erase();
+            i--;
+        }
+        e2 = e2->next();
+    }
+
+    player.attackElapsed -= scaledDelta;
+    if(player.attackElapsed<=0.0f){
+        player.attackElapsed = player.attackSpeed;
+        PlayerAttack();
+    }
+
     //camera/player control
-    prePlayerX = 0;
-    prePlayerY = 0;
+    prePlayerX = 0.0f;
+    prePlayerY = 0.0f;
     if(pressW) prePlayerY += player.speed * scaledDelta;
     if(pressS) prePlayerY += -player.speed * scaledDelta;
     if(pressA) prePlayerX += -player.speed * scaledDelta;
@@ -287,6 +358,9 @@ void TestScene::render(){
     //enemy
     for(int i = 0; i < enemies.size(); i++){
         r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize));
+    }
+    for(int i = 0; i < projectiles.size(); i++){
+        r->draw_texture(_projectileTexture, Rect2(projectiles[i].x - camX + projectiles[i].offsetX, -(projectiles[i].y - camY) + projectiles[i].offsetY, projectiles[i].eSize, projectiles[i].eSize));
     }
 
     //ui
@@ -370,9 +444,11 @@ void TestScene::render(){
         camY=player.y;
     };
 
-    ImGui::Text("\ncamX: %d | playerX: %d", camX, player.x);
-    ImGui::Text("camY: %d | playerY: %d", camY, player.y);
+    ImGui::Text("\ncamX: %f | playerX: %f", camX, player.x);
+    ImGui::Text("camY: %f | playerY: %f", camY, player.y);
 
+    ImGui::Text("index: %d", index);
+    ImGui::Text("indey: %d", indey);
     ImGui::End();
 
     GUI::render();
@@ -417,18 +493,22 @@ TestScene::TestScene(){
     _enemyImage->load_from_file("assetts/inUse/Enemy.png");
     _enemyTexture.instance();
     _enemyTexture->create_from_image(_enemyImage);
+    _projectileImage.instance();
+    _projectileImage->load_from_file("assetts/inUse/projectile.png");
+    _projectileTexture.instance();
+    _projectileTexture->create_from_image(_projectileImage);
 
     chunks = {};
     enemies = {};
-    camX = 0;
-    camY = 0;
+    camX = 0.0f;
+    camY = 0.0f;
     chunkBlockSize = 200;
-    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 950, 10);
+    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
-    prePlayerX = 0;
-    prePlayerY = 0;
+    prePlayerX = 0.0f;
+    prePlayerY = 0.0f;
     canMoveX = true;
     canMoveY = true;
 }

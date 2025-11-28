@@ -8,6 +8,30 @@ enum class CameraState{
     Camera,
     Both
 };
+struct Projectile{
+    float x = 0;
+    float y = 0;
+    float targetX = 0;
+    float targetY = 0;
+    int eSize = 0;
+    int offsetX = 0;
+    int offsetY = 0;
+    float lifeTime = 0.0f;
+    int speed = 0;
+
+    Projectile(){};
+    Projectile(float x, float y, int eSize, int offsetX, int offsetY, float targetX, float targetY, float lifeTime, int speed){
+        this->x = x;
+        this->y = y;
+        this->eSize = eSize;
+        this->offsetX = offsetX;
+        this->offsetY = offsetY;
+        this->targetX = targetX;
+        this->targetY = targetY;
+        this->lifeTime = lifeTime;
+        this->speed = speed;
+	}
+};
 
 struct TerrainItem{
     int x = 0;
@@ -44,17 +68,19 @@ struct Chunk{ //egy chunk 6x6 darab 200 x 200 pixel-es részbõl van
 	}
 };
 struct Player{
-    int x = 0;
-    int y = 0;
+    float x = 0;
+    float y = 0;
     int eSize = 0;
     int offsetX = 0;
     int offsetY = 0;
     float hp = 0;
+    float attackElapsed = 0;
+    float attackSpeed = 0;
     int speed = 0;
     int damage = 0;
 
     Player(){};
-    Player(int x, int y, int eSize, int offsetX, int offsetY, float hp, int speed, int damage){
+    Player(float x, float y, int eSize, int offsetX, int offsetY, float hp, int speed,float attackSpeed, int damage){
         this->x = x;
         this->y = y;
         this->eSize = eSize;
@@ -62,13 +88,15 @@ struct Player{
         this->offsetY = offsetY;
         this->hp = hp;
         this->speed = speed;
+        this->attackSpeed = attackSpeed;
+        this->attackElapsed = attackSpeed;
         this->damage = damage;
 	}
 };
 
 struct Enemy{
-    int x = 0;
-    int y = 0;
+    float x = 0;
+    float y = 0;
     int eSize = 0;
     int offsetX = 0;
     int offsetY = 0;
@@ -80,7 +108,7 @@ struct Enemy{
     float aliveTime = 0; //TODO ezt torolni, csak debug
 
     Enemy(){};
-    Enemy(int x, int y, int eSize, int offsetX, int offsetY, int hp, int speed, int damage){
+    Enemy(float x, float y, int eSize, int offsetX, int offsetY, int hp, int speed, int damage){
         this->x = x;
         this->y = y;
         this->eSize = eSize;
@@ -104,6 +132,8 @@ public:
 	virtual void GenGhost();
 	virtual void CheckCollisionPlayer();
 	virtual void CheckCollisionMoveEnemy();
+	virtual void CheckCollisionProjectile();
+	virtual void PlayerAttack();
 
     TestScene();
 
@@ -111,8 +141,9 @@ public:
     List<Chunk> chunks;
     Player player;
     List<Enemy> enemies;
-    int camX;
-    int camY;
+    List<Projectile> projectiles;
+    float camX;
+    float camY;
     int chunkBlockSize;
     int charOffsetX;
     int charOffsetY;
@@ -122,8 +153,8 @@ public:
     bool start = false; //lefutott-e az update elején egyszer egy start, ez csak most kell talán késöbb nem
     CameraState camState;
     float enemySpawnTimer;
-    int prePlayerX;
-    int prePlayerY;
+    float prePlayerX;
+    float prePlayerY;
     bool canMoveX;
     bool canMoveY;
 
@@ -145,6 +176,9 @@ public:
     bool showCenterLine = false;
     bool canSpawnEnemy = false;
 
+    int index;
+    int indey;
+
 protected:
     Ref<Font> _font;
     Ref<Image> _grassImage;
@@ -163,6 +197,8 @@ protected:
     Ref<Texture> _playerTexture;
     Ref<Image> _enemyImage;
     Ref<Texture> _enemyTexture;
+    Ref<Image> _projectileImage;
+    Ref<Texture> _projectileTexture;
 
 };
 
