@@ -36,10 +36,52 @@ void TestScene::input_event(const Ref<InputEvent> &event){
             if(iek->get_physical_scancode() == KEY_D){
                 pressD = true;
             }
+            if(iek->get_physical_scancode() == KEY_ESCAPE){
+                escPress();
+            }
         }
     }
 
 }
+
+void TestScene::escPress(){
+    if(timeScale == 1.0f) timeScale = 0.0f;
+    else if(timeScale == 0.0f) timeScale = 1.0f;
+
+    newGame(); //TODO gombra rakni ezt
+
+}
+
+void TestScene::newGame() {
+    chunks.clear();
+    chunksInGeneration.clear();
+    enemies.clear();
+    camX = 0.0f;
+    camY = 0.0f;
+    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
+    camState = CameraState::Both;
+    enemySpawnTimer = 0.0f;
+    score = 0;
+    prePlayerX = 0.0f;
+    prePlayerY = 0.0f;
+    canMoveX = true;
+    canMoveY = true;
+
+    timeScale = 1.0f;
+    start = false;
+    pressW = false;
+    pressS = false;
+    pressA = false;
+    pressD = false;
+
+    fpsElapsed = 1.0f;
+    fps = 0;
+    fpsDisplay = 0;
+    fpsElapsed = 1.0f;
+    int fpsDisplay = 0;
+    int fps = 0;
+}
+
 void TestScene::GenGhost(){
     RandomPCG rnd;
     rnd.seed(SFWTime::time_ns());
@@ -66,7 +108,7 @@ void TestScene::GenerateChunk(int x, int y){
     RandomPCG rnd;
 
     rnd.seed(SFWTime::time_ns()+x+y);
-    int rockCount = rnd.random(0, 4);
+    int rockCount = rnd.random(1, 4);
     for(int i = 0; i < rockCount; i++){
         int rockX = rnd.random(-8, 9);
         int rockY = rnd.random(-8, 9);
@@ -78,6 +120,48 @@ void TestScene::GenerateChunk(int x, int y){
     mtx.lock();
     chunks.push_back(Chunk(x, y, 960-(chunkBlockSize*3), 540-(chunkBlockSize*3), terrainObjs));
     mtx.unlock();
+}
+
+void TestScene::CheckChunks(){
+    indexX = Math::round(player.x / 1200);// if(Math::abs(player.x) % 1200 > 600){if(player.x / 1200 > 0){index += 1;}else if(player.x / 1200<0){index-=1;}}
+    indexY = Math::round(player.y / 1200);// if(Math::abs(player.y) % 1200 > 600){if(player.y / 1200 > 0){indey += 1;}else if(player.y / 1200<0){indey-=1;}}
+
+    int xPos = indexX * 1200;
+    int yPos = indexY * 1200;
+
+    auto CheckChunkAtPos = [&](int xAdd, int yAdd)
+    {
+        bool shouldGenerate = true;
+        for(int i = 0; i < chunks.size(); i++){
+            if(xPos+xAdd == chunks[i].x && yPos+yAdd == chunks[i].y){
+                shouldGenerate = false;
+                break;
+            }
+        }
+        if(shouldGenerate){
+            for(int i = 0; i < chunksInGeneration.size(); i++){
+                if(chunksInGeneration[i].x == xPos + xAdd && chunksInGeneration[i].y == yPos + yAdd){
+                    shouldGenerate = false;
+                    break;
+                }
+            }
+        }
+        if(shouldGenerate){
+            Thread t1;
+            ThreadData* td1 = new ThreadData{xPos + xAdd, yPos + yAdd, this};
+            t1.start(&TestScene::thread_func, td1);
+            chunksInGeneration.push_back(Vector2(xPos + xAdd, yPos + yAdd));
+        }
+    };
+
+    CheckChunkAtPos(chunkBlockSize*6, 0);
+    CheckChunkAtPos(-chunkBlockSize*6, 0);
+    CheckChunkAtPos(0, chunkBlockSize*6);
+    CheckChunkAtPos(0, -chunkBlockSize*6);
+    CheckChunkAtPos(chunkBlockSize*6, chunkBlockSize*6);
+    CheckChunkAtPos(chunkBlockSize*6, -chunkBlockSize*6);
+    CheckChunkAtPos(-chunkBlockSize*6, chunkBlockSize*6);
+    CheckChunkAtPos(-chunkBlockSize*6, -chunkBlockSize*6);
 }
 
 void TestScene::thread_func(void *p_user_data){
@@ -227,8 +311,9 @@ void TestScene::update(float delta){
     scaledDelta = delta * timeScale;
     if(!start){
         Application::get_singleton()->target_fps = 1000;
-        Thread t1, t2, t3, t4, t5, t6, t7, t8, t9;
-        ThreadData* td1 = new ThreadData{0, 0, this};
+        chunks.push_back(Chunk(0, 0, 960-(chunkBlockSize*3), 540-(chunkBlockSize*3), {}));
+        chunksInGeneration.push_back(Vector2(0, 0));
+        /*Thread t2, t3, t4, t5, t6, t7, t8, t9;
         ThreadData* td2 = new ThreadData{chunkBlockSize*6, 0, this};
         ThreadData* td3 = new ThreadData{-chunkBlockSize*6, 0, this};
         ThreadData* td4 = new ThreadData{0, chunkBlockSize*6, this};
@@ -237,7 +322,6 @@ void TestScene::update(float delta){
         ThreadData* td7 = new ThreadData{chunkBlockSize*6, -chunkBlockSize*6, this};
         ThreadData* td8 = new ThreadData{-chunkBlockSize*6, chunkBlockSize*6, this};
         ThreadData* td9 = new ThreadData{-chunkBlockSize*6, -chunkBlockSize*6, this};
-        t1.start(&TestScene::thread_func, td1);
         t2.start(&TestScene::thread_func, td2);
         t3.start(&TestScene::thread_func, td3);
         t4.start(&TestScene::thread_func, td4);
@@ -245,20 +329,16 @@ void TestScene::update(float delta){
         t6.start(&TestScene::thread_func, td6);
         t7.start(&TestScene::thread_func, td7);
         t8.start(&TestScene::thread_func, td8);
-        t9.start(&TestScene::thread_func, td9);
+        t9.start(&TestScene::thread_func, td9);*/
 
         start = true;
     }
 
-    index = Math::round(player.x / 1200);// if(Math::abs(player.x) % 1200 > 600){if(player.x / 1200 > 0){index += 1;}else if(player.x / 1200<0){index-=1;}}
-    indey = Math::round(player.y / 1200);// if(Math::abs(player.y) % 1200 > 600){if(player.y / 1200 > 0){indey += 1;}else if(player.y / 1200<0){indey-=1;}}
-
-    int xcor = index * 1200;
-    int ycor = indey * 1200;
+    CheckChunks();
 
     fps++;
-    fpsElapsed += delta; //TODO megmondani tanarnak hogy valami rossz a target_fps-el
-    if(fpsElapsed > 2.0f){
+    fpsElapsed += delta;
+    if(fpsElapsed > 1.0f){
         fpsDisplay = fps;
         fps = 0;
         fpsElapsed = 0.0f;
@@ -364,10 +444,9 @@ void TestScene::render(){
     }
 
     //ui
-    r->draw_text_2d("Score: "+String::num(score), _font, Vector2(10,10), Color(190, 0, 180));
-    r->draw_text_2d("HP: "+String::num(player.hp, 0), _font, Vector2(10,50), Color(190, 0, 180));
-    r->draw_text_2d("D: "+String::num(scaledDelta), _font, Vector2(10,90), Color(190, 0, 180));
-    r->draw_text_2d("FPS: "+String::num(fpsDisplay), _font, Vector2(10,130), Color(190, 0, 180));
+    r->draw_text_2d("Score: "+String::num(Math::floor(score)), _font, Vector2(5,10), Color(190, 0, 180));
+    r->draw_text_2d("HP: "+String::num(player.hp, 0), _font, Vector2(5,45), Color(190, 0, 180));
+    r->draw_text_2d("FPS: "+String::num(fpsDisplay), _font, Vector2(5,80), Color(190, 0, 180));
 
     //debug
     if(showChunkBorder){
@@ -447,8 +526,8 @@ void TestScene::render(){
     ImGui::Text("\ncamX: %f | playerX: %f", camX, player.x);
     ImGui::Text("camY: %f | playerY: %f", camY, player.y);
 
-    ImGui::Text("index: %d", index);
-    ImGui::Text("indey: %d", indey);
+    ImGui::Text("indexX: %d", indexX);
+    ImGui::Text("indexy: %d", indexY);
     ImGui::End();
 
     GUI::render();
@@ -499,6 +578,7 @@ TestScene::TestScene(){
     _projectileTexture->create_from_image(_projectileImage);
 
     chunks = {};
+    chunksInGeneration = {};
     enemies = {};
     camX = 0.0f;
     camY = 0.0f;

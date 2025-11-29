@@ -128,17 +128,21 @@ public:
 	virtual void update(float delta);
 	virtual void render();
 	virtual void GenerateChunk(int startX, int startY);
+	virtual void CheckChunks();
 	static void thread_func(void *p_user_data);
 	virtual void GenGhost();
 	virtual void CheckCollisionPlayer();
 	virtual void CheckCollisionMoveEnemy();
 	virtual void CheckCollisionProjectile();
 	virtual void PlayerAttack();
+	virtual void escPress();
+	virtual void newGame();
 
     TestScene();
 
     Mutex mtx;
     List<Chunk> chunks;
+    List<Vector2> chunksInGeneration;
     Player player;
     List<Enemy> enemies;
     List<Projectile> projectiles;
@@ -176,8 +180,8 @@ public:
     bool showCenterLine = false;
     bool canSpawnEnemy = false;
 
-    int index;
-    int indey;
+    int indexX;
+    int indexY;
 
 protected:
     Ref<Font> _font;
