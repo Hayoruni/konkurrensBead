@@ -44,11 +44,24 @@ void TestScene::input_event(const Ref<InputEvent> &event){
 
 }
 
-void TestScene::escPress(){
-    if(timeScale == 1.0f) timeScale = 0.0f;
-    else if(timeScale == 0.0f) timeScale = 1.0f;
+void TestScene::newGameClick(){
+    if(score > highScore)highScore = score;
+    newGame();
+}
 
-    newGame(); //TODO gombra rakni ezt
+void TestScene::quitClick(){
+    Application::get_singleton()-> running = false;
+}
+
+void TestScene::escPress(){
+    if(menuOpen && player.hp >= 0.0f){
+        timeScale = 1.0f;
+        menuOpen = false;
+    }
+    else if(!menuOpen){
+        timeScale = 0.0f;
+        menuOpen = true;
+    }
 
 }
 
@@ -56,6 +69,7 @@ void TestScene::newGame() {
     chunks.clear();
     chunksInGeneration.clear();
     enemies.clear();
+    projectiles.clear();
     camX = 0.0f;
     camY = 0.0f;
     player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
@@ -66,6 +80,7 @@ void TestScene::newGame() {
     prePlayerY = 0.0f;
     canMoveX = true;
     canMoveY = true;
+    menuOpen = false;
 
     timeScale = 1.0f;
     start = false;
@@ -78,8 +93,6 @@ void TestScene::newGame() {
     fps = 0;
     fpsDisplay = 0;
     fpsElapsed = 1.0f;
-    int fpsDisplay = 0;
-    int fps = 0;
 }
 
 void TestScene::GenGhost(){
@@ -179,8 +192,10 @@ void TestScene::CheckCollisionPlayer(){
         if(enemyRect.intersects(playerRect)){
             player.hp -= enemies[i].damage * scaledDelta;
             if(player.hp <= 0.0f){
-                //TODO player itt hal meg
-                //timeScale = 0.0f;
+                menuOpen = true;
+                timeScale = 0.0f;
+                if(score > highScore)highScore = score;
+                return;
             }
         }
     }
@@ -310,26 +325,9 @@ void TestScene::PlayerAttack(){
 void TestScene::update(float delta){
     scaledDelta = delta * timeScale;
     if(!start){
-        Application::get_singleton()->target_fps = 1000;
+        Application::get_singleton()->target_fps = 500;
         chunks.push_back(Chunk(0, 0, 960-(chunkBlockSize*3), 540-(chunkBlockSize*3), {}));
         chunksInGeneration.push_back(Vector2(0, 0));
-        /*Thread t2, t3, t4, t5, t6, t7, t8, t9;
-        ThreadData* td2 = new ThreadData{chunkBlockSize*6, 0, this};
-        ThreadData* td3 = new ThreadData{-chunkBlockSize*6, 0, this};
-        ThreadData* td4 = new ThreadData{0, chunkBlockSize*6, this};
-        ThreadData* td5 = new ThreadData{0, -chunkBlockSize*6, this};
-        ThreadData* td6 = new ThreadData{chunkBlockSize*6, chunkBlockSize*6, this};
-        ThreadData* td7 = new ThreadData{chunkBlockSize*6, -chunkBlockSize*6, this};
-        ThreadData* td8 = new ThreadData{-chunkBlockSize*6, chunkBlockSize*6, this};
-        ThreadData* td9 = new ThreadData{-chunkBlockSize*6, -chunkBlockSize*6, this};
-        t2.start(&TestScene::thread_func, td2);
-        t3.start(&TestScene::thread_func, td3);
-        t4.start(&TestScene::thread_func, td4);
-        t5.start(&TestScene::thread_func, td5);
-        t6.start(&TestScene::thread_func, td6);
-        t7.start(&TestScene::thread_func, td7);
-        t8.start(&TestScene::thread_func, td8);
-        t9.start(&TestScene::thread_func, td9);*/
 
         start = true;
     }
@@ -378,6 +376,20 @@ void TestScene::update(float delta){
     if(player.attackElapsed<=0.0f){
         player.attackElapsed = player.attackSpeed;
         PlayerAttack();
+    }
+
+    //menu button press
+    if(menuOpen && input->is_mouse_button_pressed(1)){
+        Point2 mPos = input->get_mouse_position();
+        for(int i = 0; i< menuButtons.size(); i++){
+            if(mPos.x > menuButtons[i].x-menuButtons[i].offsetX && mPos.x < menuButtons[i].x+menuButtons[i].offsetX &&
+            mPos.y > menuButtons[i].y-menuButtons[i].offsetY && mPos.y < menuButtons[i].y+menuButtons[i].offsetY)
+            {
+                if(menuButtons[i].func){
+                    (this->*menuButtons[i].func)();
+                }
+            }
+        }
     }
 
     //camera/player control
@@ -433,8 +445,9 @@ void TestScene::render(){
     }
 
     //player
-    r->draw_texture(_playerTexture, Rect2(player.x - camX + player.offsetX, -(player.y - camY) + player.offsetY, player.eSize, player.eSize));
-
+    if(player.hp>0){
+        r->draw_texture(_playerTexture, Rect2(player.x - camX + player.offsetX, -(player.y - camY) + player.offsetY, player.eSize, player.eSize));
+    }
     //enemy
     for(int i = 0; i < enemies.size(); i++){
         r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize));
@@ -447,6 +460,18 @@ void TestScene::render(){
     r->draw_text_2d("Score: "+String::num(Math::floor(score)), _font, Vector2(5,10), Color(190, 0, 180));
     r->draw_text_2d("HP: "+String::num(player.hp, 0), _font, Vector2(5,45), Color(190, 0, 180));
     r->draw_text_2d("FPS: "+String::num(fpsDisplay), _font, Vector2(5,80), Color(190, 0, 180));
+
+    if(menuOpen){
+        if(player.hp<=0){
+            r->draw_text_2d("You Died", _font, Vector2(890,230), Color(200, 0, 0));
+        }
+        for(int i = 0; i < menuButtons.size(); i++){
+            r->draw_texture(*menuButtons[i].texture, Rect2(menuButtons[i].x - menuButtons[i].offsetX, menuButtons[i].y - menuButtons[i].offsetY, menuButtons[i].sizeX, menuButtons[i].sizeY));
+            r->draw_text_2d(menuButtons[i].text, _font, Vector2(menuButtons[i].x - menuButtons[i].offsetX+15, menuButtons[i].y - menuButtons[i].offsetY+5), Color(255, 255, 255));
+        }
+        r->draw_text_2d("Highscore: "+String::num(Math::floor(highScore)), _font, Vector2(865,400), Color(255, 255, 255));
+    }
+
 
     //debug
     if(showChunkBorder){
@@ -505,6 +530,9 @@ void TestScene::render(){
     if(ImGui::Button("Pause/Resume")){
         if(timeScale == 1.0f) timeScale = 0.0f;
         else timeScale = 1.0f;
+    };
+    if(ImGui::Button("Damage Player 50hp")){
+        player.hp-=50;
     };
 
     ImGui::Text("\nCamera Modes");
@@ -576,7 +604,17 @@ TestScene::TestScene(){
     _projectileImage->load_from_file("assetts/inUse/projectile.png");
     _projectileTexture.instance();
     _projectileTexture->create_from_image(_projectileImage);
+    _newGameImage.instance();
+    _newGameImage->load_from_file("assetts/inUse/newGame.png");
+    _newGameTexture.instance();
+    _newGameTexture->create_from_image(_newGameImage);
+    _quitImage.instance();
+    _quitImage->load_from_file("assetts/inUse/quit.png");
+    _quitTexture.instance();
+    _quitTexture->create_from_image(_quitImage);
 
+    input  = Input::get_singleton();
+    menuButtons = {};
     chunks = {};
     chunksInGeneration = {};
     enemies = {};
@@ -587,8 +625,14 @@ TestScene::TestScene(){
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
+    highScore = 0;
     prePlayerX = 0.0f;
     prePlayerY = 0.0f;
     canMoveX = true;
     canMoveY = true;
+    menuOpen = false;
+
+
+    menuButtons.push_back(Button(960, 300, 190, 50, "New Game", &_newGameTexture, &TestScene::newGameClick));
+    menuButtons.push_back(Button(960, 365, 90, 50, "Quit", &_quitTexture, &TestScene::quitClick));
 }

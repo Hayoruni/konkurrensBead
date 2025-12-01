@@ -8,6 +8,33 @@ enum class CameraState{
     Camera,
     Both
 };
+
+class TestScene;
+struct Button{
+    int x;
+    int y;
+    int sizeX;
+    int sizeY;
+    int offsetX;
+    int offsetY;
+    void (TestScene::*func)();
+    String text;
+    Ref<Texture>* texture;
+
+    Button(){};
+    Button(int x, int y, int sizeX, int sizeY, String text, Ref<Texture>* texture,void (TestScene::*func)()){
+        this->x = x;
+        this->y = y;
+        this->sizeX = sizeX;
+        this->sizeY = sizeY;
+        this->offsetX = sizeX/2;
+        this->offsetY = sizeY/2;
+        this->text = text;
+        this->texture = texture;
+        this->func = func;
+	}
+};
+
 struct Projectile{
     float x = 0;
     float y = 0;
@@ -105,7 +132,6 @@ struct Enemy{
     int hp = 0;
     int speed = 0;
     int damage = 0;
-    float aliveTime = 0; //TODO ezt torolni, csak debug
 
     Enemy(){};
     Enemy(float x, float y, int eSize, int offsetX, int offsetY, int hp, int speed, int damage){
@@ -137,10 +163,13 @@ public:
 	virtual void PlayerAttack();
 	virtual void escPress();
 	virtual void newGame();
+	virtual void newGameClick();
+	virtual void quitClick();
 
     TestScene();
 
     Mutex mtx;
+    List<Button> menuButtons;
     List<Chunk> chunks;
     List<Vector2> chunksInGeneration;
     Player player;
@@ -149,11 +178,10 @@ public:
     float camX;
     float camY;
     int chunkBlockSize;
-    int charOffsetX;
-    int charOffsetY;
     int chunkOffsetX;
     int chunkOffsetY;
     float score;
+    float highScore;
     bool start = false; //lefutott-e az update elején egyszer egy start, ez csak most kell talán késöbb nem
     CameraState camState;
     float enemySpawnTimer;
@@ -161,8 +189,10 @@ public:
     float prePlayerY;
     bool canMoveX;
     bool canMoveY;
+    bool menuOpen;
 
     //engVar
+    Input* input;
     bool pressW = false;
     bool pressS = false;
     bool pressA = false;
@@ -178,7 +208,7 @@ public:
     bool showBlockBorder = false;
     bool showItemBorder = false;
     bool showCenterLine = false;
-    bool canSpawnEnemy = false;
+    bool canSpawnEnemy = true;
 
     int indexX;
     int indexY;
@@ -203,6 +233,10 @@ protected:
     Ref<Texture> _enemyTexture;
     Ref<Image> _projectileImage;
     Ref<Texture> _projectileTexture;
+    Ref<Image> _newGameImage;
+    Ref<Texture> _newGameTexture;
+    Ref<Image> _quitImage;
+    Ref<Texture> _quitTexture;
 
 };
 
