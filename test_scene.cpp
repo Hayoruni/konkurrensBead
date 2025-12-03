@@ -72,7 +72,7 @@ void TestScene::newGame() {
     projectiles.clear();
     camX = 0.0f;
     camY = 0.0f;
-    player = Player(0, 0, chunkBlockSize , 960-chunkBlockSize/2, 540-chunkBlockSize/2, 100, 400, 3.0f, 10);
+    player = Player(0, 0, chunkBlockSize/3 , 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
@@ -424,7 +424,7 @@ void TestScene::update(float delta){
 
 
     if(isShooting){
-        playerShootAnim.update(delta);
+        playerShootAnim.update(scaledDelta);
 
         if(playerShootAnim.isFinished()){
             isShooting = false;
@@ -433,21 +433,21 @@ void TestScene::update(float delta){
 
         bool isMoving = pressW || pressA || pressS || pressD;
         if(isMoving){
-            playerRunAnim.update(delta);
+            playerRunAnim.update(scaledDelta);
             playerIdleAnim.currentFrame = 0;
             playerIdleAnim.timer = 0.0f;
         } else {
-            playerIdleAnim.update(delta);
+            playerIdleAnim.update(scaledDelta);
 
             playerRunAnim.currentFrame = 0;
             playerRunAnim.timer = 0.0f;
         }
     }
-    if(pressA && !pressD)
+    if(pressA && !pressD && !menuOpen)
     {
         playerFacingLeft = true;
     }
-    else if(pressD && !pressA)
+    else if(pressD && !pressA && !menuOpen)
     {
         playerFacingLeft = false;
     }
@@ -489,7 +489,7 @@ void TestScene::render(){
         currentTexture = _playerShootTextures[currentFrame];
     } else {
         bool isMoving= pressW||pressA||pressS||pressD;
-        if(isMoving)
+        if(isMoving && !menuOpen)
         {
             currentFrame=playerRunAnim.currentFrame;
             currentTexture=_playerRunTextures[currentFrame];
@@ -762,7 +762,7 @@ TestScene::TestScene(){
     camX = 0.0f;
     camY = 0.0f;
     chunkBlockSize = 200;
-    player = Player(0, 0, chunkBlockSize , 960-chunkBlockSize/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
+    player = Player(0, 0, chunkBlockSize/3 , 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
