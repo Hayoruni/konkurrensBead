@@ -8,6 +8,53 @@ enum class CameraState{
     Camera,
     Both
 };
+struct Animation{
+public:
+    int frameCount;
+    int currentFrame;
+    float frameTime;
+    float timer;
+    int frameWidth;
+    int frameHeight;
+    bool loop;
+
+Animation() : frameCount(0), currentFrame(0), frameTime(0), timer(0), frameWidth(0), frameHeight(0), loop(true) {}
+    Animation(int frames, int width, int height, float timePerFrame, bool shouldLoop = true)
+            : frameCount(frames), currentFrame(0), frameTime(timePerFrame),
+              timer(0.0f), frameWidth(width), frameHeight(height), loop(shouldLoop) {}
+
+
+
+    void update(float delta) {
+        timer += delta;
+        if (timer >= frameTime) {
+            timer = 0.0f;
+            if(loop){
+                currentFrame = (currentFrame + 1) % frameCount;
+            } else {
+                if(currentFrame < frameCount - 1){
+                    currentFrame++;
+                }
+            }
+        }
+    }
+
+
+    bool isFinished() const {
+        return !loop && currentFrame >= frameCount - 1;
+    }
+
+    void reset() {
+        currentFrame = 0;
+        timer = 0.0f;
+    }
+
+    Rect2 getSourceRect() const {
+        return Rect2(currentFrame * frameWidth, 0, frameWidth, frameHeight);
+    }
+
+};
+
 
 class TestScene;
 struct Button{
@@ -45,6 +92,7 @@ struct Projectile{
     int offsetY = 0;
     float lifeTime = 0.0f;
     int speed = 0;
+    float angle = 0.0f;
 
     Projectile(){};
     Projectile(float x, float y, int eSize, int offsetX, int offsetY, float targetX, float targetY, float lifeTime, int speed){
@@ -57,6 +105,7 @@ struct Projectile{
         this->targetY = targetY;
         this->lifeTime = lifeTime;
         this->speed = speed;
+        this->angle = Math::atan2(targetY, targetX) + Math::deg2rad(90.0f);
 	}
 };
 
@@ -94,6 +143,7 @@ struct Chunk{ //egy chunk 6x6 darab 200 x 200 pixel-es részbõl van
         this->terrainItems = terrainItems;
 	}
 };
+
 struct Player{
     float x = 0;
     float y = 0;
@@ -212,6 +262,11 @@ public:
 
     int indexX;
     int indexY;
+    Animation playerIdleAnim;
+    Animation playerRunAnim;
+    bool playerFacingLeft = false;
+    Animation playerShootAnim;
+    bool isShooting = false;
 
 protected:
     Ref<Font> _font;
@@ -237,6 +292,14 @@ protected:
     Ref<Texture> _newGameTexture;
     Ref<Image> _quitImage;
     Ref<Texture> _quitTexture;
+
+    List<Ref<Image>> _playerIdleImages;
+    List<Ref<Texture>> _playerIdleTextures;
+    List<Ref<Image>> _playerRunImages;
+    List<Ref<Texture>> _playerRunTextures;
+    List<Ref<Image>> _playerShootImages;
+    List<Ref<Texture>> _playerShootTextures;
+
 
 };
 

@@ -72,7 +72,7 @@ void TestScene::newGame() {
     projectiles.clear();
     camX = 0.0f;
     camY = 0.0f;
-    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
+    player = Player(0, 0, chunkBlockSize , 960-chunkBlockSize/2, 540-chunkBlockSize/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
@@ -297,6 +297,10 @@ void TestScene::CheckCollisionProjectile(){
 }
 
 void TestScene::PlayerAttack(){
+
+    isShooting = true;
+    playerShootAnim.reset();
+
     if(enemies.size()>0){
         int minIndex = 0;
         int minDistance = Math::sqrt((((enemies[0].x - player.x)*(enemies[0].x - player.x))+((enemies[0].y - player.y)*(enemies[0].y - player.y))));
@@ -314,10 +318,10 @@ void TestScene::PlayerAttack(){
         float targetY = enemies[minIndex].y - player.y;
         double value = targetX*targetX+targetY*targetY;
         float length = Math::sqrt(value);
-        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/6,960-chunkBlockSize/6/2, 540-chunkBlockSize/6/2,targetX/length,targetY/length,10.0f,player.speed*2));
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/3,960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2,targetX/length,targetY/length,10.0f,player.speed*2));
     }
     else{
-        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/6,960-chunkBlockSize/6/2, 540-chunkBlockSize/6/2,1.0f,1.0f,10.0f,player.speed*2));
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/3,960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2,1.0f,1.0f,10.0f,player.speed*2));
     }
 
 }
@@ -417,6 +421,37 @@ void TestScene::update(float delta){
         if(canMoveX) player.x += prePlayerX;
         if(canMoveY) player.y += prePlayerY;
     }
+
+
+    if(isShooting){
+        playerShootAnim.update(delta);
+
+        if(playerShootAnim.isFinished()){
+            isShooting = false;
+        }
+    } else {
+
+        bool isMoving = pressW || pressA || pressS || pressD;
+        if(isMoving){
+            playerRunAnim.update(delta);
+            playerIdleAnim.currentFrame = 0;
+            playerIdleAnim.timer = 0.0f;
+        } else {
+            playerIdleAnim.update(delta);
+
+            playerRunAnim.currentFrame = 0;
+            playerRunAnim.timer = 0.0f;
+        }
+    }
+    if(pressA && !pressD)
+    {
+        playerFacingLeft = true;
+    }
+    else if(pressD && !pressA)
+    {
+        playerFacingLeft = false;
+    }
+
 }
 void TestScene::render(){
     Renderer *r = Renderer::get_singleton();
@@ -445,16 +480,75 @@ void TestScene::render(){
     }
 
     //player
-    if(player.hp>0){
-        r->draw_texture(_playerTexture, Rect2(player.x - camX + player.offsetX, -(player.y - camY) + player.offsetY, player.eSize, player.eSize));
+    if(player.hp > 0){
+
+        int currentFrame;
+        Ref<Texture> currentTexture;
+         if(isShooting){
+        currentFrame = playerShootAnim.currentFrame;
+        currentTexture = _playerShootTextures[currentFrame];
+    } else {
+        bool isMoving= pressW||pressA||pressS||pressD;
+        if(isMoving)
+        {
+            currentFrame=playerRunAnim.currentFrame;
+            currentTexture=_playerRunTextures[currentFrame];
+        }
+        else{
+            currentFrame=playerIdleAnim.currentFrame;
+            currentTexture=_playerIdleTextures[currentFrame];
+        }
+
+    }
+
+    float drawWidth = player.eSize;
+    float drawX = player.x - camX + player.offsetX;
+
+    if(playerFacingLeft){
+        drawX += player.eSize;
+        drawWidth = -player.eSize;
+    }
+
+    r->draw_texture(currentTexture,
+                    Rect2(drawX,
+                          -(player.y - camY) + player.offsetY,
+                          drawWidth,
+                          player.eSize),
+                    Color(1,1,1));
     }
     //enemy
     for(int i = 0; i < enemies.size(); i++){
         r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize));
     }
-    for(int i = 0; i < projectiles.size(); i++){
-        r->draw_texture(_projectileTexture, Rect2(projectiles[i].x - camX + projectiles[i].offsetX, -(projectiles[i].y - camY) + projectiles[i].offsetY, projectiles[i].eSize, projectiles[i].eSize));
+    for(int i = 0; i < projectiles.size(); i++)
+    {
+        float angle = projectiles[i].angle;
+
+    float cx = projectiles[i].x - camX + projectiles[i].offsetX;
+    float cy = -(projectiles[i].y - camY) + projectiles[i].offsetY;
+
+    Transform2D t;
+    t.rotate(projectiles[i].angle);
+
+    t[2] = Vector2(cx, cy);
+
+    Rect2 rect(
+        -projectiles[i].eSize / 2,
+        -projectiles[i].eSize / 2,
+        projectiles[i].eSize,
+        projectiles[i].eSize
+    );
+
+    // 4) Kirajzolás
+    r->draw_texture_tr(
+        t,
+        _projectileTexture,
+        rect,
+        Color(1,1,1)
+    );
+
     }
+
 
     //ui
     r->draw_text_2d("Score: "+String::num(Math::floor(score)), _font, Vector2(5,10), Color(190, 0, 180));
@@ -592,16 +686,63 @@ TestScene::TestScene(){
     _rockTextures.push_back(_rockTexture3);
     _rockTextures.push_back(_rockTexture4);
 
-    _playerImage.instance();
-    _playerImage->load_from_file("assetts/inUse/Player.png");
-    _playerTexture.instance();
-    _playerTexture->create_from_image(_playerImage);
+
+    for(int i = 0; i < 6; i++)
+    {
+        Ref<Image> frameImage;
+        frameImage.instance();
+        frameImage->load_from_file("assetts/inUse/archer_idle/archer_idle" + String::num(i+1) + ".png");
+        _playerIdleImages.push_back(frameImage);
+
+        Ref<Texture> frameTexture;
+        frameTexture.instance();
+        frameTexture->create_from_image(frameImage);
+        _playerIdleTextures.push_back(frameTexture);
+    }
+    int frameWidth = _playerIdleImages[0]->get_width();
+    int frameHeight = _playerIdleImages[0]->get_height();
+    playerIdleAnim = Animation(6, frameWidth, frameHeight, 0.1f);
+
+    for (int i=0;i<4;i++)
+    {
+        Ref<Image> frameImage;
+        frameImage.instance();
+        frameImage->load_from_file("assetts/inUse/archer_run/Archer_Run"+String::num(i+1)+".png");
+        _playerRunImages.push_back(frameImage);
+
+        Ref<Texture> frameTexture;
+        frameTexture.instance();
+        frameTexture->create_from_image(frameImage);
+        _playerRunTextures.push_back(frameTexture);
+    }
+    int runFrameWidth = _playerRunImages[0]->get_width();
+    int runFrameHeight = _playerRunImages[0]->get_height();
+    playerRunAnim = Animation(4, runFrameWidth, runFrameHeight, 0.08f);
+
+    for (int i=0;i<8;i++)
+        {
+            Ref<Image> frameImage;
+            frameImage.instance();
+            frameImage->load_from_file("assetts/inUse/archer_shoot/Archer_Shoot"+String::num(i+1)+".png");
+            _playerShootImages.push_back(frameImage);
+
+            Ref<Texture> frameTexture;
+            frameTexture.instance();
+            frameTexture->create_from_image(frameImage);
+            _playerShootTextures.push_back(frameTexture);
+        }
+        int shootFrameWidth = _playerShootImages[0]->get_width();
+        int shootFrameHeight = _playerShootImages[0]->get_height();
+        playerShootAnim = Animation(4, shootFrameWidth, shootFrameHeight, 0.08f, false);
+
+
+
     _enemyImage.instance();
     _enemyImage->load_from_file("assetts/inUse/Enemy.png");
     _enemyTexture.instance();
     _enemyTexture->create_from_image(_enemyImage);
     _projectileImage.instance();
-    _projectileImage->load_from_file("assetts/inUse/projectile.png");
+    _projectileImage->load_from_file("assetts/inUse/Arrow.png");
     _projectileTexture.instance();
     _projectileTexture->create_from_image(_projectileImage);
     _newGameImage.instance();
@@ -621,7 +762,7 @@ TestScene::TestScene(){
     camX = 0.0f;
     camY = 0.0f;
     chunkBlockSize = 200;
-    player = Player(0, 0, chunkBlockSize / 3, 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
+    player = Player(0, 0, chunkBlockSize , 960-chunkBlockSize/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;
