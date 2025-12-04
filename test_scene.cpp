@@ -337,7 +337,6 @@ void TestScene::PlayerAttack(){
     else{
         projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/3,960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2,1.0f,1.0f,10.0f,player.speed*2));
     }
-
 }
 
 void TestScene::update(float delta){
@@ -466,7 +465,7 @@ void TestScene::update(float delta){
         playerFacingLeft = false;
     }
 
-    enemyRunAnim.update(delta);
+    enemyRunAnim.update(scaledDelta);
 
 }
 void TestScene::render(){
@@ -644,6 +643,9 @@ void TestScene::render(){
         for(int i = 0; i <enemies.size(); i++){
             r->draw_line_rect(Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY,  enemies[i].eSize, enemies[i].eSize),Color(0, 180, 180), 2);
         }
+        for(int i = 0; i < projectiles.size(); i++){
+             r->draw_line_rect(Rect2(projectiles[i].x - camX + projectiles[i].offsetX, -(projectiles[i].y - camY) + projectiles[i].offsetY, projectiles[i].eSize, projectiles[i].eSize), Color(0, 150, 255), 2);
+        }
     }
     if(showCenterLine){
         r->draw_line(Vector2(0, r->get_window_size().y/2),Vector2(r->get_window_size().x, r->get_window_size().y/2), Color(180, 0, 0), 2);
@@ -672,6 +674,12 @@ void TestScene::render(){
     if(ImGui::Button("Pause/Resume")){
         if(timeScale == 1.0f) timeScale = 0.0f;
         else timeScale = 1.0f;
+    };
+    if(ImGui::Button("Slow mo on/off")){
+        if(!menuOpen){
+            if(timeScale == 0.3f) timeScale = 1.0f;
+            else timeScale = 0.3f;
+        }
     };
     if(ImGui::Button("Damage Player 50hp")){
         player.hp-=50;
