@@ -234,10 +234,10 @@ void TestScene::thread_func(void *p_user_data){
 }
 void TestScene::CheckCollisionMoveEnemy(){
     for(int i = 0; i<enemies.size(); i++){
-        int targetX = player.x - enemies[i].x;
-        int targetY = player.y - enemies[i].y;
+        float targetX = player.x - enemies[i].x;
+        float targetY = player.y - enemies[i].y;
         double value = targetX*targetX+targetY*targetY;
-        int length = Math::sqrt(value);
+        float length = Math::sqrt(value);
         if(length>enemies[i].speed*scaledDelta){
             enemies[i].preMoveX = enemies[i].x + (enemies[i].speed*scaledDelta) * targetX / length;
             enemies[i].preMoveY = enemies[i].y + (enemies[i].speed*scaledDelta) * targetY / length;
@@ -332,10 +332,10 @@ void TestScene::PlayerAttack(){
         float targetY = enemies[minIndex].y - player.y;
         double value = targetX*targetX+targetY*targetY;
         float length = Math::sqrt(value);
-        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/3,960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2,targetX/length,targetY/length,10.0f,player.speed*2));
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/4,960-chunkBlockSize/4/2, 540-chunkBlockSize/4/2,targetX/length,targetY/length,10.0f,player.speed*2));
     }
     else{
-        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/3,960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2,1.0f,1.0f,10.0f,player.speed*2));
+        projectiles.push_back(Projectile(player.x,player.y,chunkBlockSize/4,960-chunkBlockSize/4/2, 540-chunkBlockSize/4/2,1.0f,1.0f,10.0f,player.speed*2));
     }
 }
 
@@ -416,6 +416,11 @@ void TestScene::update(float delta){
     if(pressS) prePlayerY += -player.speed * scaledDelta;
     if(pressA) prePlayerX += -player.speed * scaledDelta;
     if(pressD) prePlayerX += player.speed * scaledDelta;
+
+    if(prePlayerX != 0.0f && prePlayerY != 0.0f){
+        prePlayerX/=1.25f;
+        prePlayerY/=1.25f;
+    }
 
     CheckCollisionPlayer();
 
@@ -672,8 +677,11 @@ void TestScene::render(){
         canSpawnEnemy = !canSpawnEnemy;
     };
     if(ImGui::Button("Pause/Resume")){
-        if(timeScale == 1.0f) timeScale = 0.0f;
-        else timeScale = 1.0f;
+        if(!menuOpen){
+            if(timeScale == 1.0f) timeScale = 0.0f;
+            else if(timeScale == 0.3f) timeScale = 0.0f;
+            else timeScale = 1.0f;
+        }
     };
     if(ImGui::Button("Slow mo on/off")){
         if(!menuOpen){

@@ -177,8 +177,8 @@ struct Enemy{
     int eSize = 0;
     int offsetX = 0;
     int offsetY = 0;
-    int preMoveX = 0;
-    int preMoveY = 0;
+    float preMoveX = 0;
+    float preMoveY = 0;
     int hp = 0;
     int speed = 0;
     int damage = 0;
