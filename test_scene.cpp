@@ -183,22 +183,24 @@ void TestScene::thread_func(void *p_user_data){
     delete td;
 }
 
-void TestScene::CheckCollisionPlayer(){
-    Rect2 playerRect = Rect2(player.x + player.offsetX + prePlayerX, -player.y + player.offsetY + prePlayerY, player.eSize, player.eSize);
+    void TestScene::CheckCollisionPlayer(){
+        Rect2 playerRect = Rect2(player.x + player.offsetX + prePlayerX, -player.y + player.offsetY + prePlayerY, player.eSize, player.eSize);
 
-    //enemies
-    for(int i = 0; i < enemies.size(); i++){
-        Rect2 enemyRect = Rect2(enemies[i].x + enemies[i].offsetX, -enemies[i].y + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize);
-        if(enemyRect.intersects(playerRect)){
-            player.hp -= enemies[i].damage * scaledDelta;
-            if(player.hp <= 0.0f){
-                menuOpen = true;
-                timeScale = 0.0f;
-                if(score > highScore)highScore = score;
-                return;
+        //enemies
+        for(int i = 0; i < enemies.size(); i++){
+            Rect2 enemyRect = Rect2(enemies[i].x + enemies[i].offsetX, -enemies[i].y + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize);
+            if(enemyRect.intersects(playerRect)){
+                player.hp -= enemies[i].damage * scaledDelta;
+                if(player.hp <= 0.0f){
+                    menuOpen = true;
+                    timeScale = 0.0f;
+                    if(score > highScore)highScore = score;
+                    return;
+                }
             }
         }
-    }
+
+
 
     //rocks
     canMoveX = true;
@@ -276,23 +278,35 @@ void TestScene::CheckCollisionMoveEnemy(){
     }
 }
 
-void TestScene::CheckCollisionProjectile(){
-    if(projectiles.size()<=0) return;
-    Rect2 enemyRect;
-    Rect2 projectileRect;
-    List<Projectile>::Element *e = projectiles.front();
+void TestScene::CheckCollisionProjectile() {
+    for (List<Projectile>::Element *e = projectiles.front(); e != nullptr; ) {
 
-    for(int i = 0;i<projectiles.size();i++){
-        projectileRect = Rect2(projectiles[i].x + projectiles[i].offsetX, -projectiles[i].y + projectiles[i].offsetY, projectiles[i].eSize, projectiles[i].eSize);
-        for(int j = 0;j<enemies.size();j++){
-            enemyRect = Rect2(enemies[j].x + enemies[j].offsetX, -enemies[j].y + enemies[j].offsetY, enemies[j].eSize, enemies[j].eSize);
-            if(enemyRect.intersects(projectileRect)){
-                e->erase();
-                i--;
+        Projectile &p = e->get();
+        bool erased = false;
+
+        Rect2 projectileRect(p.x + p.offsetX,
+                             -p.y + p.offsetY,
+                             p.eSize, p.eSize);
+
+        for (int j = 0; j < enemies.size(); j++) {
+
+            Rect2 enemyRect(enemies[j].x + enemies[j].offsetX,
+                            -enemies[j].y + enemies[j].offsetY,
+                            enemies[j].eSize, enemies[j].eSize);
+
+            if (enemyRect.intersects(projectileRect)) {
                 enemies[j].hp = 0;
+
+                List<Projectile>::Element* toErase = e;
+                e = e->next();
+                toErase->erase();
+                erased = true;
+                break;
             }
         }
-        e = e->next();
+
+        if (!erased)
+            e = e->next();
     }
 }
 
@@ -452,6 +466,8 @@ void TestScene::update(float delta){
         playerFacingLeft = false;
     }
 
+    enemyRunAnim.update(delta);
+
 }
 void TestScene::render(){
     Renderer *r = Renderer::get_singleton();
@@ -517,9 +533,41 @@ void TestScene::render(){
                     Color(1,1,1));
     }
     //enemy
-    for(int i = 0; i < enemies.size(); i++){
-        r->draw_texture(_enemyTexture, Rect2(enemies[i].x - camX + enemies[i].offsetX, -(enemies[i].y - camY) + enemies[i].offsetY, enemies[i].eSize, enemies[i].eSize));
+    for (int i = 0; i < enemies.size(); i++)
+    {
+        Ref<Texture> enemyTex;
+
+        if (_enemyRunTextures.size() > 0) {
+            int frame = enemyRunAnim.currentFrame;
+            enemyTex = _enemyRunTextures[frame];
+        } else {
+            enemyTex = _enemyTexture;
+        }
+
+       float drawWidth = enemies[i].eSize;
+    float drawX = enemies[i].x - camX + enemies[i].offsetX;
+
+    // Ha a player az enemy bal oldalán van, az enemy balra nézzen
+    bool enemyFacingLeft = (player.x < enemies[i].x);
+    if (enemyFacingLeft) {
+        drawX += enemies[i].eSize;        // eltoljuk jobbra egy szélességgel
+        drawWidth = -enemies[i].eSize;    // negatív szélesség = tükrözés
     }
+
+    r->draw_texture(
+        enemyTex,
+        Rect2(
+            drawX,
+            -(enemies[i].y - camY) + enemies[i].offsetY,
+            drawWidth,
+            enemies[i].eSize
+        ),
+        Color(1, 1, 1)
+    );
+
+}
+
+
     for(int i = 0; i < projectiles.size(); i++)
     {
         float angle = projectiles[i].angle;
@@ -528,7 +576,7 @@ void TestScene::render(){
     float cy = -(projectiles[i].y - camY) + projectiles[i].offsetY;
 
     Transform2D t;
-    t.rotate(projectiles[i].angle);
+    t.rotate(-projectiles[i].angle);
 
     t[2] = Vector2(cx, cy);
 
@@ -686,12 +734,12 @@ TestScene::TestScene(){
     _rockTextures.push_back(_rockTexture3);
     _rockTextures.push_back(_rockTexture4);
 
-
+    //player idle animáció
     for(int i = 0; i < 6; i++)
     {
         Ref<Image> frameImage;
         frameImage.instance();
-        frameImage->load_from_file("assetts/inUse/archer_idle/archer_idle" + String::num(i+1) + ".png");
+        frameImage->load_from_file("assetts/inUse/archer_idle2/archer_idle" + String::num(i+1) + ".png");
         _playerIdleImages.push_back(frameImage);
 
         Ref<Texture> frameTexture;
@@ -702,12 +750,12 @@ TestScene::TestScene(){
     int frameWidth = _playerIdleImages[0]->get_width();
     int frameHeight = _playerIdleImages[0]->get_height();
     playerIdleAnim = Animation(6, frameWidth, frameHeight, 0.1f);
-
+    //player futás animáció
     for (int i=0;i<4;i++)
     {
         Ref<Image> frameImage;
         frameImage.instance();
-        frameImage->load_from_file("assetts/inUse/archer_run/Archer_Run"+String::num(i+1)+".png");
+        frameImage->load_from_file("assetts/inUse/archer_run2/Archer_Run"+String::num(i+1)+".png");
         _playerRunImages.push_back(frameImage);
 
         Ref<Texture> frameTexture;
@@ -718,12 +766,12 @@ TestScene::TestScene(){
     int runFrameWidth = _playerRunImages[0]->get_width();
     int runFrameHeight = _playerRunImages[0]->get_height();
     playerRunAnim = Animation(4, runFrameWidth, runFrameHeight, 0.08f);
-
+    //player lövés animáció
     for (int i=0;i<8;i++)
         {
             Ref<Image> frameImage;
             frameImage.instance();
-            frameImage->load_from_file("assetts/inUse/archer_shoot/Archer_Shoot"+String::num(i+1)+".png");
+            frameImage->load_from_file("assetts/inUse/archer_shoot2/Archer_Shoot"+String::num(i+1)+".png");
             _playerShootImages.push_back(frameImage);
 
             Ref<Texture> frameTexture;
@@ -733,7 +781,7 @@ TestScene::TestScene(){
         }
         int shootFrameWidth = _playerShootImages[0]->get_width();
         int shootFrameHeight = _playerShootImages[0]->get_height();
-        playerShootAnim = Animation(4, shootFrameWidth, shootFrameHeight, 0.08f, false);
+        playerShootAnim = Animation(4, shootFrameWidth, shootFrameHeight, 0.1f, false);
 
 
 
@@ -741,6 +789,25 @@ TestScene::TestScene(){
     _enemyImage->load_from_file("assetts/inUse/Enemy.png");
     _enemyTexture.instance();
     _enemyTexture->create_from_image(_enemyImage);
+
+    //enemy futás animáció
+    for (int i=0;i<6;i++)
+        {
+            Ref<Image> frameImage;
+            frameImage.instance();
+            frameImage->load_from_file("assetts/inUse/enemy_run/enemy_run"+String::num(i+1)+".png");
+            _enemyRunImages.push_back(frameImage);
+
+            Ref<Texture> frameTexture;
+            frameTexture.instance();
+            frameTexture->create_from_image(frameImage);
+            _enemyRunTextures.push_back(frameTexture);
+        }
+        int enemyRunFrameWidth = _enemyRunImages[0]->get_width();
+        int enemyRunFrameHeight = _enemyRunImages[0]->get_height();
+        enemyRunAnim = Animation(6, enemyRunFrameWidth, enemyRunFrameHeight, 0.08f, true);
+
+
     _projectileImage.instance();
     _projectileImage->load_from_file("assetts/inUse/Arrow.png");
     _projectileTexture.instance();
@@ -762,7 +829,7 @@ TestScene::TestScene(){
     camX = 0.0f;
     camY = 0.0f;
     chunkBlockSize = 200;
-    player = Player(0, 0, chunkBlockSize , 960-chunkBlockSize/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
+    player = Player(0, 0, chunkBlockSize/3 , 960-chunkBlockSize/3/2, 540-chunkBlockSize/3/2, 100, 400, 3.0f, 10);
     camState = CameraState::Both;
     enemySpawnTimer = 0.0f;
     score = 0;

@@ -105,7 +105,7 @@ struct Projectile{
         this->targetY = targetY;
         this->lifeTime = lifeTime;
         this->speed = speed;
-        this->angle = Math::atan2(targetY, targetX) + Math::deg2rad(90.0f);
+        this->angle = Math::atan2(targetY, targetX);
 	}
 };
 
@@ -182,6 +182,7 @@ struct Enemy{
     int hp = 0;
     int speed = 0;
     int damage = 0;
+    bool isAttacking = false;
 
     Enemy(){};
     Enemy(float x, float y, int eSize, int offsetX, int offsetY, int hp, int speed, int damage){
@@ -193,6 +194,7 @@ struct Enemy{
         this->hp = hp;
         this->speed = speed;
         this->damage = damage;
+        this->isAttacking = false;
 	}
 };
 
@@ -267,6 +269,8 @@ public:
     bool playerFacingLeft = false;
     Animation playerShootAnim;
     bool isShooting = false;
+    Animation enemyRunAnim;
+
 
 protected:
     Ref<Font> _font;
@@ -299,6 +303,10 @@ protected:
     List<Ref<Texture>> _playerRunTextures;
     List<Ref<Image>> _playerShootImages;
     List<Ref<Texture>> _playerShootTextures;
+
+    List<Ref<Image>> _enemyRunImages;
+    List<Ref<Texture>> _enemyRunTextures;
+
 
 
 };
