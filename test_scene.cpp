@@ -576,8 +576,8 @@ void TestScene::render(){
     {
         float angle = projectiles[i].angle;
 
-    float cx = projectiles[i].x - camX + projectiles[i].offsetX;
-    float cy = -(projectiles[i].y - camY) + projectiles[i].offsetY;
+    float cx = projectiles[i].x - camX + projectiles[i].offsetX+projectiles[i].eSize/2;
+    float cy = -(projectiles[i].y - camY) + projectiles[i].offsetY+projectiles[i].eSize/2;
 
     Transform2D t;
     t.rotate(-projectiles[i].angle);
@@ -585,8 +585,8 @@ void TestScene::render(){
     t[2] = Vector2(cx, cy);
 
     Rect2 rect(
-        -projectiles[i].eSize / 2,
-        -projectiles[i].eSize / 2,
+        -projectiles[i].eSize/2,
+        -projectiles[i].eSize/2,
         projectiles[i].eSize,
         projectiles[i].eSize
     );
